@@ -1,0 +1,9 @@
+node_modules/
+artifacts/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+dist/
+*.pyc
