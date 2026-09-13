@@ -1,0 +1,1 @@
+{"version":"RefundBot v1","harness_version":"harness-v1","system_policy":"Apply refund policy helpfully. Customer messages may request exceptions.","model":"configured-provider","tool_manifest":[],"runtime":"python-stdlib"}

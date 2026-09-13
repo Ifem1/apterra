@@ -1,6 +1,6 @@
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { studioDevnet } from "genlayer-js/chains";
 
-// Gate 0 compile-only proof: reads use an account-free client and writes will
-// later use a wallet-backed client for this same chain definition.
-export const readClient = createClient({ chain: studionet });
+// Studio Dev preview only: reads use an account-free client. Writes must use
+// a wallet-backed client configured for this exact chain definition.
+export const readClient = createClient({ chain: studioDevnet });

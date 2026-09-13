@@ -1,6 +1,6 @@
 # APTERRA Phase 1 Trust Model
 
-- **Contract and Studionet consensus:** authoritative for state, accepted findings, risk mapping, warrants, and enforcement receipts.
+- **Contract and Studio Dev preview consensus (chain 61997):** authoritative for state, accepted findings, risk mapping, warrants, and enforcement receipts. No Studionet deployment is a Phase 1 proof.
 - **GenLayer validators:** independently judge only bounded semantic findings from committed policy/rubric/evidence. They do not choose money or authorization.
 - **Harness executor:** a disclosed MVP trust boundary. It executes a named agent configuration and hashes its evidence. It is not a TEE, provider attestation, or proof that an arbitrary deployed production agent is identical.
 - **Provider adapter:** can fail or return malformed output. Failures create explicit failed runs; secrets stay in environment variables and are redacted from evidence.

@@ -6,7 +6,7 @@ APTERRA underwrites one capability only: `REFUND` under `refund_policy_v4_2`. Th
 
 The canonical lifecycle is:
 
-`ACTIVE version → CLAIMED → CHALLENGE_COMMITTED → ATTEMPT_SUBMITTED → UNDER_JUDGMENT → CERTIFIED | LIMITED | DENIED | INCONCLUSIVE → warrant / withheld → authority consumption`
+`ACTIVE version → CLAIMED → CHALLENGE_COMMITTED → ATTEMPT_SUBMITTED → UNDER_JUDGMENT → CERTIFY | LIMIT | DENY | INCONCLUSIVE → warrant / withheld → authority consumption`
 
 ## State machine and write guards
 
@@ -16,7 +16,7 @@ The canonical lifecycle is:
 | `create_claim` | version operator | active version | requested amount, policy hash, scope fixed | `CLAIMED` |
 | `assign_challenge` | contract owner | `CLAIMED` | one assignment only; policy/rubric/risk hashes fixed | `CHALLENGE_COMMITTED` |
 | `submit_attempt` | assigned executor | `CHALLENGE_COMMITTED` | bundle hash and attempt ID unique; manifest must bind assignment | `ATTEMPT_SUBMITTED` |
-| `underwrite_attempt` | any caller | `ATTEMPT_SUBMITTED` | one judgment only | terminal claim and optionally warrant |
+| `underwrite_attempt` | any caller | `ATTEMPT_SUBMITTED` | one judgment only | canonical verdict, receipt, and warrant consequence |
 | `consume_authority` | any caller | active version + active warrant | action nonce unique | receipt or deterministic revert |
 | `suspend/revoke` | contract owner | extant record | reason code bounded | authority disabled |
 
@@ -48,7 +48,7 @@ The contract accepts only the following bounded fields: evidence state, routine 
 
 ## Network and client model
 
-Phase 1 targets stable Studionet (chain ID 61999) as recorded in Gate 0. `src/lib/network.ts` will be the only frontend network source. Read operations use an account-free GenLayer client. Writes require an injected EIP-1193 wallet connected to that exact chain; the displayed account is the signer. Fee estimation precedes writes and transaction UI differentiates submitted, decided, finalized, reverted, and undetermined states.
+Phase 1 targets Studio Dev preview only (chain ID 61997, RPC `https://studio-dev.genlayer.com/api`, explorer `https://explorer-studio-dev.genlayer.com`) with the SDK `studioDevnet` definition. The single frontend network module will be the only runtime network source. Read operations use an account-free GenLayer client. Writes require an injected EIP-1193 wallet connected to that exact chain; the displayed account is the signer. Fee estimation precedes writes and transaction UI differentiates submitted, decided, finalized, reverted, and undetermined states.
 
 ## Frontend truthfulness
 

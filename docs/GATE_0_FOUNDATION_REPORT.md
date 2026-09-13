@@ -1,54 +1,66 @@
 # Gate 0 — Foundation / Environment
 
-**Status: PASS** — 2026-09-12
+**Status: PARTIAL — Studio Dev network and funded test account verified; RC GenVM runner resolution and corrected deployment smoke remain incomplete.**
 
-## Verified target
+Observed 2026-09-13. Studio Dev preview addresses and transactions must always be treated as ephemeral.
 
-| Item | Verified value |
-| --- | --- |
-| Network | GenLayer Studionet (stable hosted environment) |
-| Chain ID | `61999` (`0xf22f`) |
-| RPC | `https://studio.genlayer.com/api` |
-| Explorer | `https://genlayer-explorer.vercel.app` |
-| CLI | `genlayer 0.39.2` |
-| JS SDK | `genlayer-js 1.1.8` |
-| Python client | `genlayer-py 0.16.3` |
-| Test runner | `genlayer-test 0.29.2` / `gltest` |
-| Node / npm | `v24.16.0` / `11.13.0` |
-| Python | `3.12.10` |
-| GenVM runtime commitment | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` |
+## Target and installed toolchain
 
-The network and runtime were taken from current official GenLayer documentation, not from the generated template. The CLI has `studionet`, not the newer release-candidate `studio-dev` preset, so this project targets stable Studionet and must not call it Studio-dev.
+| Item | Value | Result |
+| --- | --- | --- |
+| Network | Agent Tank / GenLayer Studio Dev preview | Required target; no stable fallback used |
+| CLI alias | `studio-dev` | Project-local CLI `network list` / `network info` returned the built-in preset |
+| Chain ID | `61997` / `0xf22d` | RPC `eth_chainId` returned 61997 during this checkpoint |
+| RPC | `https://studio-dev.genlayer.com/api` | Read-only balance/chain request succeeded |
+| Explorer | `https://explorer-studio-dev.genlayer.com` | Canonical preview explorer |
+| CLI | `genlayer@0.40.0-rc.3` | Local `node_modules/.bin/genlayer.cmd`; exact dependency pin |
+| JS SDK | `genlayer-js@2.0.0-rc.1` | Installed; `studioDevnet` chain URL inspected |
+| Python SDK | `genlayer-py==0.19.0rc2` | Installed |
+| Test tooling | `genlayer-test==0.30.0rc2` | Installed; requires pinned runner artifact before execution |
+| Linter | `genvm-linter==0.11.1rc2` | Installed; AST lint runs |
+| Node / npm / Python | `v24.16.0` / `11.13.0` / `3.12.10` | Observed |
 
-## Current API decisions
+The manifest and lockfile pin `genlayer` exactly to `0.40.0-rc.3`, not a semver range. Use the project-local binary, not the broken global CLI.
 
-- Contracts are Python `gl.Contract` classes with `@gl.public.view` / `@gl.public.write` methods.
-- Semantic underwriting will use a custom `gl.vm.run_nondet_unsafe(leader_fn, validator_fn)` pair. Validators must independently validate bounded findings against the committed evidence and rubric; valid JSON alone is insufficient.
-- Reads use an account-free `createClient({ chain: studionet })`. Browser writes will use the same chain plus an injected EIP-1193 provider and displayed wallet address.
-- Writes must use the SDK/CLI fee-estimation flow and surface decision/finalization truthfully. `waitForDecision` is not finalization; `waitForFinalization` includes fee settlement.
+## Account readiness (read-only)
 
-## Smoke evidence
+The test private key supplied directly by the owner derives public address `0xD6423aE82a975d55C6CeaC222827A727325e0459`. It already matched CLI account `redress-deployer`; no account was created or imported. Per the owner's direction, that existing account was selected active and it showed unlocked. The secret was not written to the repository, report, terminal output, or Git, and it has not signed any transaction in this task. The Studio Dev RPC returned `0xad78ebc5ac6200000` wei-equivalent (`200 GEN`) on chain 61997.
 
-The first mutable-runtime smoke (`py-genlayer:latest`) was rejected as `invalid_contract`; it is intentionally not treated as a deployment. Re-running with the official immutable runtime commitment succeeded.
+## RC runner diagnostic and direct test status
+
+- Required header in `contracts/apterra.py`: `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng`.
+- Expected standard library runner: `py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0`.
+- `genvm-lint setup --contract contracts/apterra.py --json` failed before setup completed: Windows `WinError 5` trying to resolve/create the pinned runner directory under `%USERPROFILE%\.cache\genvm-linter\...\py-genlayer\5jyc...`. The visible cached manager tree has `1jb45...`, not the pinned `5jyc...`; it was not used as a substitute.
+- `python -m pytest -q` on the direct contract cases was retried on Windows under `genlayer-test 0.30.0rc2`. The recorded run ended **10 failed, 0 passed**, all before contract loading while resolving the GenVM v0.6 RC bundle from GitHub (`WinError 10013`, network access denied). After adding the independent offline harness unit tests, `python -m pytest -q test\test_harness.py` passed **5/5**. A later combined run stalled repeating artifact resolution and was interrupted; it is not counted as a completed run. No WSL/Linux fallback was used.
+- `genvm-lint lint contracts\apterra.py`: exit 0, two AST checks passed; 32 bare-`Exception` warnings remain. This is not SDK semantic validation.
+- The package-local CLI tarball had previously been inspected once and contains its declared target `package/dist/index.js`; the global install is not used.
+
+## Deployment smoke
+
+The Studio Dev checks completed so far are limited to:
 
 | Check | Result |
 | --- | --- |
-| RPC chain query | PASS — `0xf22f` |
-| Active account / funding | PASS — unlocked account had `954.539699999999999788 GEN` at verification time |
-| Deploy minimal contract | PASS — `0xE85e0e208Ce27186017F0fE3dA7B1C13B92e4149`; tx `0x0814d29de21db139150e5311ea1d570f02259db16303822e87ed9b728a965d0f` |
-| Schema extraction | PASS — `get_value` / `set_value` returned by `genlayer schema` |
-| Initial read | PASS — `get_value` returned `0` |
-| Deterministic write | PASS — `set_value(7)` tx `0x4ef6482b2064e764c499b6c2fd173f743e20bd3d4621628ba2980a78687914da` |
-| Post-write read | PASS — `get_value` returned `7` |
-| JS SDK source smoke | PASS — `npx tsc --noEmit --skipLibCheck ... frontend-sdk-smoke.ts` |
+| CLI version and preset | PASS — CLI `0.40.0-rc.3`; `studio-dev` is current and resolves to the canonical RPC |
+| SDK chain definition / RPC endpoint | PASS — `studioDevnet` points at the canonical Studio Dev RPC |
+| RPC chain ID | PASS — `61997` |
+| Account derivation / balance | PASS — public account returned 200 GEN |
+| RC runner header artifact setup | BLOCKED — pinned artifact cannot be resolved in this environment |
+| Lint / schema / validate / SDK typecheck | INCOMPLETE — see above; no SDK setup pass |
+| Deploy / read / deterministic write / post-write read | NOT RUN |
+| Fee estimation / submission / decision / finalization | NOT RUN |
 
-## Tooling findings / warnings
+No Studio Dev contract address or transaction is claimed. Before any future deployment, the exact source hash, constructor, account, network identity, live fee quote, and consequences must be presented for owner approval. The account balance check alone is not deployment approval.
 
-1. The generated `football_bets` template is outdated: its test imports the removed `default_account` symbol and pins obsolete SDK versions. It will be removed rather than inherited.
-2. The current Windows `gltest` direct runner fails before execution with `PermissionError [WinError 32]` while unlinking its stdin-injection temp file. The same minimal contract was therefore verified through the real Studionet deploy/read/write path above.
-3. A full TypeScript check of `genlayer-js 1.1.8` declaration files currently reports upstream declaration incompatibilities with the resolved Viem/TypeScript combination. The product will keep the SDK version pinned, use `skipLibCheck`, and test real client behavior; this warning remains documented rather than hidden.
-4. `npm install` reported 8 dependency audit findings in the template dependency graph. The obsolete frontend template will be replaced before product work.
+## Superseded stable-environment smoke (historical only)
+
+The following earlier baseline was on stable Studionet and is **not** an APTERRA Phase 1 deployment or proof. It must not be used as an active configuration:
+
+- Chain 61999; RPC `https://studio.genlayer.com/api`; explorer `https://genlayer-explorer.vercel.app`.
+- Smoke contract `0xE85e0e208Ce27186017F0fE3dA7B1C13B92e4149`, deploy transaction `0x0814d29de21db139150e5311ea1d570f02259db16303822e87ed9b728a965d0f`.
+- Deterministic write transaction `0x4ef6482b2064e764c499b6c2fd173f743e20bd3d4621628ba2980a78687914da`; observed value changed from 0 to 7.
+- Historical tooling was CLI 0.39.2 / JS SDK 1.1.8 / Python SDK 0.16.3 / test runner 0.29.2 and is not used for chain 61997.
 
 ## Gate decision
 
-The required environment, target network, fee/submission route, transaction lifecycle, contract schema path, live deploy/read/write, and frontend SDK import path are verified. The direct-VM Windows defect is a tooling limitation, not a product assumption; integration verification will use live Studionet plus the test runner where it operates correctly.
+Gate 0 is **not PASS**. Continue using Studio Dev only. The blocking dependency is obtaining and verifying the exact RC runner/header artifact in the current supported Windows environment. Separately, the required deployment smoke cannot be submitted until its exact transaction parameters are presented and approved by the owner. All existing Gate 2–4 source has been preserved while this prerequisite is addressed.
