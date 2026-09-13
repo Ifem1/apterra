@@ -21,6 +21,29 @@ const PENDING_KEY = "apterra:studio-dev:pending-transactions:v1";
 type PendingTransaction = { hash: string; method: string; status: string; execution?: string };
 type PreparedWrite = Awaited<ReturnType<typeof prepareContractWrite>>;
 
+function isPendingTransaction(value: unknown): value is PendingTransaction {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.hash === "string" && /^0x[a-fA-F0-9]{64}$/.test(item.hash)
+    && typeof item.method === "string" && item.method.length <= 128
+    && typeof item.status === "string" && item.status.length <= 64
+    && (item.execution === undefined || (typeof item.execution === "string" && item.execution.length <= 128));
+}
+
+function loadPending(): PendingTransaction[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(PENDING_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(isPendingTransaction).slice(0, 50) : [];
+  } catch { return []; }
+}
+
+function persistPending(items: PendingTransaction[]): boolean {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(items));
+    return true;
+  } catch { return false; }
+}
+
 function compact(address: string | null) {
   return address ? `${address.slice(0, 7)}…${address.slice(-5)}` : "Wallet not connected";
 }
@@ -65,8 +88,7 @@ export default function Home() {
 
   useEffect(() => {
     if (window.ethereum) setProvider(window.ethereum);
-    try { setPending(JSON.parse(localStorage.getItem(PENDING_KEY) ?? "[]") as PendingTransaction[]); }
-    catch { setPending([]); }
+    setPending(loadPending());
   }, []);
 
   useEffect(() => {
@@ -169,10 +191,10 @@ export default function Home() {
       const entry = { hash: String(hash), method: prepared.action.functionName, status: "SUBMITTED" };
       const updated = [entry, ...pending.filter((item) => item.hash !== entry.hash)];
       setPending(updated);
-      localStorage.setItem(PENDING_KEY, JSON.stringify(updated));
+      const persisted = persistPending(updated);
       setPrepared(null);
-      setNotice(`Submitted ${entry.method}. Tracking the same transaction hash; no automatic retry will be sent.`);
-      setNoticeTone("good");
+      setNotice(`Submitted ${entry.method}. Tracking the same transaction hash; no automatic retry will be sent.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+      setNoticeTone(persisted ? "good" : "warn");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Wallet signing or submission failed.");
       setNoticeTone("warn");
@@ -184,12 +206,12 @@ export default function Home() {
     try {
       const transaction = await readClient.waitForFinalization({ hash: hash as never, interval: 3000, retries: 10 });
       const next = pending.map((item) => item.hash === hash
-        ? { ...item, status: String(transaction.statusName ?? transaction.lifecycle), execution: transaction.txExecutionResultName ?? "Execution result unavailable" }
+        ? { ...item, status: String(transaction.statusName ?? transaction.lifecycle).slice(0, 64), execution: String(transaction.txExecutionResultName ?? "Execution result unavailable").slice(0, 128) }
         : item);
       setPending(next);
-      localStorage.setItem(PENDING_KEY, JSON.stringify(next));
-      setNotice(`Finalization state read for ${hash}. Verify the execution result and canonical readback.`);
-      setNoticeTone(transaction.txExecutionResultName === "FINISHED_WITH_RETURN" ? "good" : "warn");
+      const persisted = persistPending(next);
+      setNotice(`Finalization state read for ${hash}. Verify the execution result and canonical readback.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+      setNoticeTone(transaction.txExecutionResultName === "FINISHED_WITH_RETURN" && persisted ? "good" : "warn");
     } catch (error) {
       setNotice(`Tracking did not reach finality. The transaction remains saved; query the same hash before taking any further action. ${error instanceof Error ? error.message : ""}`);
       setNoticeTone("warn");
