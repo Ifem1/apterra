@@ -2,7 +2,7 @@
 
 ## Local checks
 
-Run `npm run lint`, `npm run typecheck`, and `npm run build` for the console and release guard. The current `lint` script ESLint-checks the Studio Dev-only release guard and runs the TypeScript typecheck; it does not claim a full TSX ESLint pass. `next build` currently reports that the optional Next ESLint plugin is not configured. Run `python -m pytest -q test/test_harness.py` for provider-free harness behavior. The GenLayer direct suite is `python -m pytest -q`; it must execute against the pinned RC runner and must not be replaced by a network test.
+Run `npm run lint`, `npm run typecheck`, and `npm run build` for the console and release guard. The current `lint` script ESLint-checks the Studio Dev-only release guard and runs the TypeScript typecheck; it does not claim a full TSX ESLint pass. `next build` currently reports that the optional Next ESLint plugin is not configured. Run `python -m pytest -q test/test_harness.py test/test_underwriting_pure.py` for offline harness checks plus the contract's AST-extracted deterministic findings functions. These do not emulate GenVM. The GenLayer direct suite is `python -m pytest -q`; it must execute against the pinned RC runner and must not be replaced by a network test.
 
 The direct suite covers lifecycle/access control, commitment and evidence validation, canonical verdict mapping, malformed findings, warrant replacement/suspension/revocation, amount limits, expiry, and nonce replay. Authored tests are not evidence of a passing run: check [Gate 0 Foundation Report](GATE_0_FOUNDATION_REPORT.md) for the observed blocker and exact completed runs.
 
