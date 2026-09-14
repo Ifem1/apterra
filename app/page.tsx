@@ -5,6 +5,7 @@ import type { ContractAction } from "@/lib/transactions";
 import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycle } from "@/lib/transactions";
 import { generateChallengeInputs, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
 import { parseAgentVersionIds, parseAgentVersionRecord, type AgentVersionRecord } from "@/lib/version-history";
+import { buildPowerShellHarnessCommand, challengeFilename, evidenceFilename } from "@/lib/harness-command";
 import {
   APTERRA_NETWORK,
   configuredContractAddress,
@@ -147,6 +148,7 @@ export default function Home() {
   const [challengeId, setChallengeId] = useState("");
   const [executor, setExecutor] = useState("");
   const [attemptId, setAttemptId] = useState("");
+  const [harnessAgent, setHarnessAgent] = useState<"refundbot-v1" | "refundbot-v2">("refundbot-v1");
   const [evidence, setEvidence] = useState("");
   const [queryId, setQueryId] = useState("");
   const [actionAmount, setActionAmount] = useState("600");
@@ -159,6 +161,11 @@ export default function Home() {
   const [challengeInputs, setChallengeInputs] = useState<ChallengeInput[]>([]);
   const [challengeAssignmentCommitted, setChallengeAssignmentCommitted] = useState(false);
   const [challengeInputsRevealed, setChallengeInputsRevealed] = useState(false);
+  const harnessCommand = useMemo(() => {
+    try {
+      return buildPowerShellHarnessCommand({ agent: harnessAgent, versionId, providerId, executorId: executor || account || "", attemptId, claimId, challengeId });
+    } catch { return ""; }
+  }, [account, attemptId, challengeId, claimId, executor, harnessAgent, providerId, versionId]);
   const reviewDialogRef = useRef<HTMLElement | null>(null);
   const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -478,11 +485,23 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${claimId}-committed-challenge.json`;
+    anchor.download = challengeFilename(claimId);
     anchor.click();
     URL.revokeObjectURL(url);
     setNotice("Downloaded the exact inputs read from the revealed Studio Dev challenge record.");
     setNoticeTone("good");
+  };
+
+  const copyHarnessCommand = async () => {
+    if (!harnessCommand) return;
+    try {
+      await navigator.clipboard.writeText(harnessCommand);
+      setNotice(`Copied the PowerShell command for ${harnessAgent}, ${versionId}, and the exact committed challenge file. Save the download in your Downloads folder and run this from the APTERRA repository root.`);
+      setNoticeTone("good");
+    } catch {
+      setNotice("Clipboard access was unavailable. The generated command is shown below so you can copy it without editing evidence JSON.");
+      setNoticeTone("warn");
+    }
   };
 
   return (
@@ -576,9 +595,11 @@ export default function Home() {
                 <label>Challenge ID<input value={challengeId} onChange={(e) => { setChallengeId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="refund-challenge-001" maxLength={128} /></label>
                 <label>Evidence executor · address<input value={executor || account || ""} onChange={(e) => { setExecutor(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="0x…" maxLength={42} /></label>
                 <label>Attempt ID<input value={attemptId} onChange={(e) => setAttemptId(e.target.value)} placeholder="attempt-001" maxLength={128} /></label>
+                <label>Disclosed harness adapter<select value={harnessAgent} onChange={(e) => setHarnessAgent(e.target.value as "refundbot-v1" | "refundbot-v2")}><option value="refundbot-v1">refundbot-v1</option><option value="refundbot-v2">refundbot-v2</option></select></label>
               </div>
               <div className="case-list">{["Routine eligible", "Clearly ineligible", "Ambiguous exception", "Adversarial override"].map((label, index) => <span key={label}><i>{String(index + 1).padStart(2, "0")}</i>{label}</span>)}</div>
-              <div className="button-row"><button className="action-button secondary" disabled={!contractAddress || !challengeInputsRevealed} onClick={downloadCommittedChallenge}>Download canonical revealed cases</button><span className="inline-callout"><strong>Disclosed harness</strong><span>After downloading the canonical inputs, run <code>python .\harness\run\run_harness.py --agent refundbot-v1 --challenge-file .\&lt;downloaded-file&gt; --version-id VERSION --provider-id PROVIDER --executor-id 0x… --attempt ATTEMPT --claim CLAIM --challenge CHALLENGE --out evidence.json</code>. Configure provider credentials only in local environment variables; the harness rejects oversized inputs/output and records no chain-of-thought.</span></span></div>
+              <div className="button-row"><button className="action-button secondary" disabled={!contractAddress || !challengeInputsRevealed} onClick={downloadCommittedChallenge}>Download canonical revealed cases</button><button className="action-button secondary" disabled={!challengeInputsRevealed || !harnessCommand} onClick={() => void copyHarnessCommand()}>Copy exact PowerShell harness command</button><span className="inline-callout"><strong>Disclosed harness</strong><span>Save the downloaded challenge file in your Windows Downloads folder. Run the copied command from the APTERRA repository root; it uses the selected version, provider, executor, claim, challenge, and attempt. Choose the adapter that matches the registered version. This disclosed sample runner does not attest or execute an arbitrary production binary. Provider credentials stay in local environment variables. The script rejects oversized inputs/output and records no chain-of-thought. Output: <code>{harnessCommand ? evidenceFilename(attemptId) : "<valid-attempt-id>-evidence.json"}</code>.</span></span></div>
+              {harnessCommand && <pre className="read-result" aria-label="Generated local harness command">{harnessCommand}</pre>}
               <div className="button-row">
                 <button className="action-button secondary" disabled={busy || challengeInputs.length !== 4 || !contractAddress || !account || !claimId || !challengeId || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !/^0x[a-fA-F0-9]{40}$/.test(executor || account || "")} onClick={async () => { try { const assignedExecutor = (executor || account) as string; const draft = await persistChallengeDraft(window.localStorage, { claimId, challengeId, executor: assignedExecutor, cases: challengeInputs }, POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH); await makeAction("Commit refund challenge · owner only", "assign_challenge", [claimId, challengeId, RUBRIC_HASH, assignedExecutor, draft.commitment], "The exact case-input commitment is recorded without revealing inputs. Its preimage is saved locally so an owner can recover after refresh."); } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to preserve the challenge preimage."); setNoticeTone("warn"); } }}>Prepare challenge commitment <span>→</span></button>
                 <button className="action-button secondary" disabled={readBusy || !claimId || !contractAddress} onClick={() => void readCanonical("get_challenge", claimId)}>Verify committed assignment</button>
