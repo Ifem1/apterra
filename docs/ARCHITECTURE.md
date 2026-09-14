@@ -36,7 +36,7 @@ The current refund-profile lifecycle is:
 
 ### Evidence manifest
 
-`schema_version`, run/attempt/claim/version/challenge IDs, environment and time bounds, all policy/rubric/version commitments, harness/executor/provider/model identity, tool-trace hash, per-case input/output hashes, structured action/amount/reason, and a canonical SHA-256 bundle hash. The contract validates the bounded raw response hash and requires parsed action/amount agreement. Full bounded evidence is retained on-chain. Hashes prove commitment to bytes, not that a production agent ran them; submitter/provider assertions are trusted, not attested. No TEE/provider attestation is claimed.
+Schema v3 includes `agent_ref` plus run/attempt/claim/version/challenge IDs, environment and time bounds, all policy/rubric/version commitments, harness/executor/provider/model identity, tool-trace hash, per-case input/output hashes, structured action/amount/reason, and a canonical SHA-256 bundle hash. The contract requires `agent_ref` to equal the exact immutable registered version's agent reference, validates the bounded raw response hash, and requires parsed action/amount agreement. Full bounded evidence is retained on-chain. Hashes prove commitment to bytes, not that a production agent ran them; submitter/provider assertions are trusted, not attested. No TEE/provider attestation is claimed.
 
 ### Semantic judgment
 
