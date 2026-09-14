@@ -8,12 +8,18 @@ export default [
     ignores: [".next/**", "node_modules/**", "artifacts/**", ".tooling/**"],
   },
   {
+    // Keep the plugin globally discoverable for Next.js's build-time ESLint check.
+    // The recommended rules themselves remain scoped to TS/TSX below.
+    plugins: { "@next/next": nextPlugin },
+    rules: { "@next/next/no-html-link-for-pages": "off" },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parser: tsParser,
       parserOptions: { ecmaVersion: "latest", sourceType: "module", ecmaFeatures: { jsx: true } },
     },
-    plugins: { "@typescript-eslint": tsPlugin, "@next/next": nextPlugin },
+    plugins: { "@typescript-eslint": tsPlugin },
     rules: {
       ...tsPlugin.configs.recommended.rules,
       ...nextPlugin.configs["core-web-vitals"].rules,
