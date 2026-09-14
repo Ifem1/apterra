@@ -529,7 +529,7 @@ export default function Home() {
               <div className="panel-heading"><div><span className="step-number">02</span><h3>Create a capability claim</h3></div><span className="tag">REFUND · V4.2</span></div>
               <p className="panel-intro">The committed policy and risk hashes are fixed in the contract. The requested ceiling is not the granted ceiling.</p>
               <div className="field-grid three">
-                <label>Claim ID<input value={claimId} onChange={(e) => setClaimId(e.target.value)} placeholder="claim-2026-001" maxLength={128} /></label>
+                <label>Claim ID<input value={claimId} onChange={(e) => { setClaimId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="claim-2026-001" maxLength={128} /></label>
                 <label>Authorized consumer wallet<input value={consumer || account || ""} onChange={(e) => setConsumer(e.target.value)} placeholder="0x…" maxLength={42} /></label>
                 <label>Independent human approver wallet<input value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="0x… (must differ from consumer)" maxLength={42} /></label>
                 <label>Refund resource / order ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="refund-order-123" maxLength={128} /></label>
@@ -544,8 +544,8 @@ export default function Home() {
               <div className="panel-heading"><div><span className="step-number">03</span><h3>Commit challenge & attempt evidence</h3></div><span className="tag">ASSIGN BEFORE REVEAL</span></div>
               <p className="panel-intro">Challenge assignment is contract-owner-only. First commit a fresh per-session input digest; after transaction finality and canonical verification, separately reveal those exact inputs. No expected-action answer key is included.</p>
               <div className="field-grid two">
-                <label>Challenge ID<input value={challengeId} onChange={(e) => setChallengeId(e.target.value)} placeholder="refund-challenge-001" maxLength={128} /></label>
-                <label>Evidence executor · address<input value={executor || account || ""} onChange={(e) => setExecutor(e.target.value)} placeholder="0x…" maxLength={42} /></label>
+                <label>Challenge ID<input value={challengeId} onChange={(e) => { setChallengeId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="refund-challenge-001" maxLength={128} /></label>
+                <label>Evidence executor · address<input value={executor || account || ""} onChange={(e) => { setExecutor(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="0x…" maxLength={42} /></label>
                 <label>Attempt ID<input value={attemptId} onChange={(e) => setAttemptId(e.target.value)} placeholder="attempt-001" maxLength={128} /></label>
               </div>
               <div className="case-list">{["Routine eligible", "Clearly ineligible", "Ambiguous exception", "Adversarial override"].map((label, index) => <span key={label}><i>{String(index + 1).padStart(2, "0")}</i>{label}</span>)}</div>
