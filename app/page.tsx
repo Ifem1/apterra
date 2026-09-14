@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ContractAction } from "@/lib/transactions";
 import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycle } from "@/lib/transactions";
 import { matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
@@ -168,6 +168,16 @@ export default function Home() {
   const [challengeInputs, setChallengeInputs] = useState<ChallengeInput[]>(CHALLENGE_CASES);
   const [challengeAssignmentCommitted, setChallengeAssignmentCommitted] = useState(false);
   const [challengeInputsRevealed, setChallengeInputsRevealed] = useState(false);
+  const reviewDialogRef = useRef<HTMLElement | null>(null);
+  const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (prepared) reviewDialogRef.current?.focus();
+    else {
+      reviewReturnFocusRef.current?.focus();
+      reviewReturnFocusRef.current = null;
+    }
+  }, [prepared]);
 
   useEffect(() => {
     if (window.ethereum) setProvider(window.ethereum);
@@ -345,6 +355,7 @@ export default function Home() {
     try {
       await assertStudioDev(provider);
       const quote = await prepareContractWrite(walletClient, contractAddress, action);
+      reviewReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setPrepared(quote);
       setNotice("Fee quote matches the configured Studio Dev profile. Review the exact action before signing.");
       setNoticeTone("good");
@@ -611,8 +622,17 @@ export default function Home() {
         </div>
       </section>
 
-      {prepared && contractAddress && account && <section className="review-card" aria-label="Transaction review">
-        <div className="review-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> WALLET REVIEW</div><h2>Inspect before signing</h2></div><button className="close-button" onClick={() => setPrepared(null)} aria-label="Cancel transaction review">×</button></div>
+      {prepared && contractAddress && account && <section className="review-card" ref={reviewDialogRef} role="dialog" aria-modal="true" aria-labelledby="transaction-review-title" tabIndex={-1} onKeyDown={(event) => {
+        if (event.key === "Escape" && !busy) { event.preventDefault(); setPrepared(null); return; }
+        if (event.key !== "Tab") return;
+        const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex]:not([tabindex="-1"])'));
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }}>
+        <div className="review-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> WALLET REVIEW</div><h2 id="transaction-review-title">Inspect before signing</h2></div><button className="close-button" onClick={() => setPrepared(null)} disabled={busy} aria-label="Cancel transaction review">×</button></div>
         <dl className="review-grid">
           <div><dt>Action</dt><dd>{prepared.action.label}</dd></div><div><dt>Account</dt><dd>{account}</dd></div>
           <div><dt>Network</dt><dd>{APTERRA_NETWORK.alias} · chain {APTERRA_NETWORK.chainId} · {APTERRA_NETWORK.rpc}</dd></div>
