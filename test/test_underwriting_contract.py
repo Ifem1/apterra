@@ -49,6 +49,7 @@ def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim
                               challenge_commitment)
     contract.reveal_challenge_inputs(claim_id, json.dumps(CASE_INPUTS, separators=(",", ":")))
     evidence = {
+        "schema_version": "2",
         "attempt_id": attempt_id,
         "claim_id": claim_id,
         "version_id": "refundbot-v1",
@@ -76,7 +77,7 @@ def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim
         case_id = case["case_id"]
         response = json.dumps({"action": "DENY", "amount": 0, "reason": "safe test fixture"}, separators=(",", ":"))
         input_hash = hashlib.sha256(json.dumps(case, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        evidence["cases"].append({"case_id": case_id, "input_hash": input_hash,
+        evidence["cases"].append({"case_id": case_id, "case_type": case["case_type"], "input_hash": input_hash,
             "output_hash": hashlib.sha256(response.encode()).hexdigest(), "response_text": response,
             "structured_action": "DENY", "structured_amount": 0, "short_reason": "safe test fixture",
             "started_at": vm._datetime, "finished_at": vm._datetime, "duration_ms": 0})
@@ -201,6 +202,10 @@ def test_consumer_and_human_approver_must_be_distinct(direct_deploy, direct_vm):
     [
         (lambda e: e["cases"][0].update(case_id="fabricated-case"), "EVIDENCE_CASE_MISMATCH"),
         (lambda e: e["cases"][0].update(input_hash="0" * 64), "INVALID_CASE_EVIDENCE"),
+        (lambda e: e["cases"][0].update(case_type="CLEARLY_INELIGIBLE"), "INVALID_CASE_EVIDENCE"),
+        (lambda e: e["cases"][0].update(uncommitted_annotation="instruction-like text"), "INVALID_CASE_EVIDENCE"),
+        (lambda e: e.update(uncommitted_annotation="instruction-like text"), "INVALID_EVIDENCE_SCHEMA"),
+        (lambda e: e.update(schema_version="999"), "INVALID_EVIDENCE_SCHEMA"),
         (lambda e: e.update(harness_identity="0x" + "12" * 20), "HARNESS_IDENTITY_MISMATCH"),
         (lambda e: e["cases"][0].update(structured_action="APPROVE"), "INVALID_CASE_EVIDENCE"),
         (lambda e: e["cases"].__setitem__(1, dict(e["cases"][0])), "EVIDENCE_CASE_MISMATCH"),
@@ -237,6 +242,43 @@ def test_attempt_sender_must_be_assigned_executor(direct_deploy, direct_vm, dire
     _new_claim(contract)
     with direct_vm.expect_revert("EXECUTOR_ONLY"):
         _challenge_and_attempt(contract, direct_vm, direct_alice, sender=contract.owner)
+
+
+def test_malformed_evidence_json_fails_with_contract_error_and_no_attempt(direct_deploy, direct_vm, direct_alice):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    digest = hashlib.sha256(json.dumps({
+        "cases": CASE_INPUTS,
+        "policy_hash": _constant_hash("POLICY_CONTENT"),
+        "risk_policy_hash": _constant_hash("RISK_POLICY_CONTENT"),
+        "rubric_hash": _constant_hash("RUBRIC_CONTENT"),
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    contract.assign_challenge("claim-1", "challenge-1", _constant_hash("RUBRIC_CONTENT"),
+                              contract.owner.__class__(direct_alice), digest)
+    contract.reveal_challenge_inputs("claim-1", json.dumps(CASE_INPUTS, separators=(",", ":")))
+    with direct_vm.expect_revert("INVALID_EVIDENCE_SCHEMA"):
+        with direct_vm.prank(direct_alice):
+            contract.submit_attempt("malformed-attempt", "claim-1", "0" * 64, "{")
+    assert contract.get_attempt("malformed-attempt") == ""
+
+
+@pytest.mark.parametrize("field", ["case_id", "case_type"])
+def test_malformed_challenge_identifiers_fail_closed_before_set_operations(direct_deploy, direct_vm, field):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    cases = json.loads(json.dumps(CASE_INPUTS))
+    cases[0][field] = ["not-a-scalar"]
+    digest = hashlib.sha256(json.dumps({
+        "cases": cases,
+        "policy_hash": _constant_hash("POLICY_CONTENT"),
+        "risk_policy_hash": _constant_hash("RISK_POLICY_CONTENT"),
+        "rubric_hash": _constant_hash("RUBRIC_CONTENT"),
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    contract.assign_challenge("claim-1", "challenge-1", _constant_hash("RUBRIC_CONTENT"),
+                              contract.owner, digest)
+    with direct_vm.expect_revert("INVALID_CASE_SET"):
+        contract.reveal_challenge_inputs("claim-1", json.dumps(cases, separators=(",", ":")))
+    assert json.loads(contract.get_claim("claim-1"))["state"] == "CHALLENGE_ASSIGNED"
 
 
 @pytest.mark.parametrize(

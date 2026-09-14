@@ -64,6 +64,16 @@ FINDING_ENUMS = {
     "severity": ("NONE", "MINOR", "MATERIAL", "CRITICAL", "UNKNOWN"),
 }
 FINDING_FIELDS = set(FINDING_ENUMS) | {"short_reason", "evidence_case_ids"}
+EVIDENCE_FIELDS = {
+    "schema_version", "run_id", "attempt_id", "claim_id", "version_id", "challenge_id", "challenge_class",
+    "policy_hash", "risk_policy_hash", "rubric_hash", "harness_version", "harness_identity", "provider_id",
+    "model_id", "system_policy_hash", "tool_manifest_hash", "runtime_hash", "environment_id", "tool_trace",
+    "tool_trace_hash", "cases", "created_at", "finished_at", "bundle_hash",
+}
+CASE_EVIDENCE_FIELDS = {
+    "case_id", "case_type", "input_hash", "output_hash", "response_text", "structured_action",
+    "structured_amount", "short_reason", "started_at", "finished_at", "duration_ms",
+}
 
 
 def _valid_findings(result: dict, case_ids: list[str] | tuple[str, ...]) -> bool:
@@ -271,6 +281,9 @@ class ApterraUnderwriter(gl.contract.Contract):
             raise gl.vm.UserError("INVALID_CASE_INPUTS")
         cases = [case.get("case_id") for case in case_inputs]
         case_types = [case.get("case_type") for case in case_inputs]
+        if (any(not isinstance(case_id, str) or not case_id or len(case_id.encode("utf-8")) > 128 for case_id in cases)
+                or any(not isinstance(case_type, str) for case_type in case_types)):
+            raise gl.vm.UserError("INVALID_CASE_SET")
         if (len(set(cases)) != len(cases) or len(set(case_types)) != len(case_types)
                 or set(case_types) != set(REQUIRED_CASE_TYPES)):
             raise gl.vm.UserError("INVALID_CASE_SET")
@@ -302,8 +315,12 @@ class ApterraUnderwriter(gl.contract.Contract):
         if gl.message.sender_address.as_hex != challenge["executor"]: raise gl.vm.UserError("EXECUTOR_ONLY")
         if len(evidence_json.encode("utf-8")) > 20000:
             raise gl.vm.UserError("EVIDENCE_TOO_LARGE")
-        evidence = json.loads(evidence_json)
-        if not isinstance(evidence, dict) or not isinstance(evidence.get("cases"), list):
+        try:
+            evidence = json.loads(evidence_json)
+        except (ValueError, TypeError):
+            raise gl.vm.UserError("INVALID_EVIDENCE_SCHEMA")
+        if (not isinstance(evidence, dict) or set(evidence) != EVIDENCE_FIELDS
+                or evidence.get("schema_version") != "2" or not isinstance(evidence.get("cases"), list)):
             raise gl.vm.UserError("INVALID_EVIDENCE_SCHEMA")
         if evidence.get("attempt_id") != attempt_id or evidence.get("claim_id") != claim_id or evidence.get("challenge_id") != challenge["id"]:
             raise gl.vm.UserError("EVIDENCE_BINDING_MISMATCH")
@@ -357,8 +374,13 @@ class ApterraUnderwriter(gl.contract.Contract):
         if any(not isinstance(case, dict) for case in evidence["cases"]):
             raise gl.vm.UserError("INVALID_CASE_EVIDENCE")
         case_ids = [case.get("case_id") for case in evidence["cases"]]
-        if len(case_ids) != 4 or set(case_ids) != set(challenge["case_ids"]): raise gl.vm.UserError("EVIDENCE_CASE_MISMATCH")
+        if (len(case_ids) != 4 or any(not isinstance(case_id, str) for case_id in case_ids)
+                or len(set(case_ids)) != 4 or set(case_ids) != set(challenge["case_ids"])):
+            raise gl.vm.UserError("EVIDENCE_CASE_MISMATCH")
+        committed_case_types = {case["case_id"]: case["case_type"] for case in challenge["case_inputs"]}
         for case in evidence["cases"]:
+            if not isinstance(case, dict) or set(case) != CASE_EVIDENCE_FIELDS:
+                raise gl.vm.UserError("INVALID_CASE_EVIDENCE")
             raw_action = "INVALID"
             raw_amount = 0
             try:
@@ -375,7 +397,8 @@ class ApterraUnderwriter(gl.contract.Contract):
                 case_finished = datetime.fromisoformat(case.get("finished_at", "").replace("Z", "+00:00"))
             except (TypeError, ValueError, AttributeError):
                 raise gl.vm.UserError("INVALID_CASE_EVIDENCE")
-            if (not isinstance(case, dict) or case.get("case_id") not in challenge["case_ids"]
+            if (case.get("case_id") not in challenge["case_ids"]
+                    or case.get("case_type") != committed_case_types.get(case.get("case_id"))
                     or case_started < created_at or case_finished < case_started or case_finished > finished_at
                     or type(case.get("duration_ms")) is not int or not 0 <= case["duration_ms"] <= 120000
                     or not isinstance(case.get("input_hash"), str) or len(case["input_hash"]) != 64
