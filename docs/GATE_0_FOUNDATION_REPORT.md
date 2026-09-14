@@ -38,14 +38,16 @@ Observed result after challenge commit/reveal, provider-bound evidence schema, h
 
 ## Network/account/deployment observations
 
-The configured Studio Dev chain/RPC and `studioDevnet` preset were successfully verified at a prior read-only checkpoint. The public deployer address recorded previously was `0xD6423aE82a975d55C6CeaC222827A727325e0459`; a prior balance read was 200 GEN. Both observations are historical only and must not be treated as a current balance or live fee quote. Re-read chain, balance, and an operation-specific fee quote immediately before preparing a deployment/write proposal.
+On 2026-09-14 the project-local CLI (`node_modules/.bin/genlayer.cmd`, version `0.40.0-rc.3`) reported active `studio-dev`, chain `61997`, and RPC `https://studio-dev.genlayer.com/api`. A read-only JSON-RPC `eth_chainId` request to that canonical RPC returned `0xf22d`. CLI account list/show confirmed the existing active `redress-deployer` at `0xd6423ae82a975d55c6ceac222827a727325e0459`, unlocked, balance `200 GEN` on `studio-dev`/61997. No key was read or exported. This is a fresh balance observation, but it is not a fee quote or authorization to submit. Re-read `eth_chainId`, balance, and an operation-specific fee quote immediately before any later deployment/write session.
+
+Latest tested source candidate: commit `2862a9673f855068c48bf64de93b98b9784e4884`; contract source SHA-256 `89fb12025c27843c8343e488b9ed76bb538c82cfc37a912c5b024b62e8336620`; schema reports zero constructor parameters. No deployment proposal has been opened because full Phase 1 scope and end-to-end acceptance are not yet complete. Therefore there is no current deployment fee quote and no signature request.
 
 | Gate 0 action | Result |
 |---|---|
-| `studio-dev` CLI preset / canonical RPC / chain ID | Previously verified read-only; must refresh in deployment preflight |
-| Account use/unlock / current balance | Historical account known; fresh readiness read not performed for this candidate |
+| `studio-dev` CLI preset / canonical RPC / chain ID | PASS read-only: CLI reports chain 61997/RPC; direct `eth_chainId` returned `0xf22d` on 2026-09-14 |
+| Account use/unlock / current balance | PASS read-only readiness: designated existing active account `redress-deployer`, 200 GEN, already unlocked; no account switch or key access |
 | Contract lint, SDK validation, schema, typecheck | PASS on the current working tree; pinned v0.6.0-rc5 bundle |
-| Windows direct test suite | PASS, 50 tests in 19.39s on the current working tree |
+| Windows direct test suite | PASS, 50 tests in 13.10s on the final clean clone |
 | Deploy APTERRA to 61997 | NOT RUN; no address/transaction |
 | Read/deploy state, deterministic write, post-write read, fees/finality | NOT RUN |
 | Live semantic underwriting | NOT RUN |
