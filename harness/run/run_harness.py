@@ -131,6 +131,9 @@ def main():
     args = parser.parse_args()
 
     config = json.loads((ROOT / "harness" / "agents" / args.agent / "config.json").read_text(encoding="utf-8"))
+    agent_ref = config.get("version")
+    if not isinstance(agent_ref, str) or not agent_ref or len(agent_ref) > 128:
+        raise RuntimeError("INVALID_DISCLOSED_AGENT_REFERENCE")
     cases = load_challenge(args.challenge_file)
     provider_id = os.getenv("APTERRA_PROVIDER_ID", args.provider_id)
     model_id = os.getenv("APTERRA_PROVIDER_MODEL", "")
@@ -159,7 +162,7 @@ def main():
     finished = datetime.now(timezone.utc)
     tool_trace = []  # This disclosed fixture runner invokes no agent tools.
     bundle = {
-        "schema_version": "2", "run_id": run_id,
+        "schema_version": "3", "agent_ref": agent_ref, "run_id": run_id,
         "attempt_id": args.attempt, "claim_id": args.claim, "version_id": args.version_id,
         "challenge_id": args.challenge, "challenge_class": "refund_policy_v4_2",
         "policy_hash": digest_text(contract_constant("POLICY_CONTENT")),

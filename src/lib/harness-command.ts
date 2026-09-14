@@ -1,5 +1,6 @@
 export type HarnessCommandInput = {
   agent: "refundbot-v1" | "refundbot-v2";
+  agentRef: string;
   versionId: string;
   providerId: string;
   executorId: string;
@@ -35,6 +36,10 @@ export function evidenceFilename(attemptId: string) {
 export function buildPowerShellHarnessCommand(input: HarnessCommandInput) {
   if (input.agent !== "refundbot-v1" && input.agent !== "refundbot-v2") {
     throw new Error("Harness agent is not supported by the disclosed runner.");
+  }
+  const expectedAgentRef = input.agent === "refundbot-v1" ? "RefundBot v1" : "RefundBot v2";
+  if (input.agentRef !== expectedAgentRef) {
+    throw new Error(`Registered agent reference must match the selected disclosed runner (${expectedAgentRef}).`);
   }
   const challengeFile = challengeFilename(input.claimId);
   const outputFile = evidenceFilename(input.attemptId);

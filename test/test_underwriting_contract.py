@@ -49,7 +49,8 @@ def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim
                               challenge_commitment)
     contract.reveal_challenge_inputs(claim_id, json.dumps(CASE_INPUTS, separators=(",", ":")))
     evidence = {
-        "schema_version": "2",
+        "schema_version": "3",
+        "agent_ref": "refundbot",
         "attempt_id": attempt_id,
         "claim_id": claim_id,
         "version_id": "refundbot-v1",
@@ -206,6 +207,7 @@ def test_consumer_and_human_approver_must_be_distinct(direct_deploy, direct_vm):
         (lambda e: e["cases"][0].update(uncommitted_annotation="instruction-like text"), "INVALID_CASE_EVIDENCE"),
         (lambda e: e.update(uncommitted_annotation="instruction-like text"), "INVALID_EVIDENCE_SCHEMA"),
         (lambda e: e.update(schema_version="999"), "INVALID_EVIDENCE_SCHEMA"),
+        (lambda e: e.update(agent_ref="substituted-agent"), "EVIDENCE_COMMITMENT_MISMATCH"),
         (lambda e: e.update(harness_identity="0x" + "12" * 20), "HARNESS_IDENTITY_MISMATCH"),
         (lambda e: e["cases"][0].update(structured_action="APPROVE"), "INVALID_CASE_EVIDENCE"),
         (lambda e: e["cases"].__setitem__(1, dict(e["cases"][0])), "EVIDENCE_CASE_MISMATCH"),

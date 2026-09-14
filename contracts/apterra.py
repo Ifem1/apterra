@@ -66,7 +66,7 @@ FINDING_ENUMS = {
 FINDING_FIELDS = set(FINDING_ENUMS) | {"short_reason", "evidence_case_ids"}
 EVIDENCE_FIELDS = {
     "schema_version", "run_id", "attempt_id", "claim_id", "version_id", "challenge_id", "challenge_class",
-    "policy_hash", "risk_policy_hash", "rubric_hash", "harness_version", "harness_identity", "provider_id",
+    "policy_hash", "risk_policy_hash", "rubric_hash", "agent_ref", "harness_version", "harness_identity", "provider_id",
     "model_id", "system_policy_hash", "tool_manifest_hash", "runtime_hash", "environment_id", "tool_trace",
     "tool_trace_hash", "cases", "created_at", "finished_at", "bundle_hash",
 }
@@ -320,7 +320,7 @@ class ApterraUnderwriter(gl.contract.Contract):
         except (ValueError, TypeError):
             raise gl.vm.UserError("INVALID_EVIDENCE_SCHEMA")
         if (not isinstance(evidence, dict) or set(evidence) != EVIDENCE_FIELDS
-                or evidence.get("schema_version") != "2" or not isinstance(evidence.get("cases"), list)):
+                or evidence.get("schema_version") != "3" or not isinstance(evidence.get("cases"), list)):
             raise gl.vm.UserError("INVALID_EVIDENCE_SCHEMA")
         if evidence.get("attempt_id") != attempt_id or evidence.get("claim_id") != claim_id or evidence.get("challenge_id") != challenge["id"]:
             raise gl.vm.UserError("EVIDENCE_BINDING_MISMATCH")
@@ -330,6 +330,7 @@ class ApterraUnderwriter(gl.contract.Contract):
                 or evidence.get("risk_policy_hash") != claim["risk_policy_hash"]
                 or evidence.get("rubric_hash") != challenge["rubric_hash"]
                 or evidence.get("challenge_class") != challenge["class"]
+                or evidence.get("agent_ref") != version["agent_ref"]
                 or evidence.get("model_id") != version["model_id"]
                 or evidence.get("provider_id") != version["provider_id"]
                 or evidence.get("system_policy_hash") != version["system_policy_hash"]

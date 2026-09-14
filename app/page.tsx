@@ -163,9 +163,9 @@ export default function Home() {
   const [challengeInputsRevealed, setChallengeInputsRevealed] = useState(false);
   const harnessCommand = useMemo(() => {
     try {
-      return buildPowerShellHarnessCommand({ agent: harnessAgent, versionId, providerId, executorId: executor || account || "", attemptId, claimId, challengeId });
+      return buildPowerShellHarnessCommand({ agent: harnessAgent, agentRef, versionId, providerId, executorId: executor || account || "", attemptId, claimId, challengeId });
     } catch { return ""; }
-  }, [account, attemptId, challengeId, claimId, executor, harnessAgent, providerId, versionId]);
+  }, [account, agentRef, attemptId, challengeId, claimId, executor, harnessAgent, providerId, versionId]);
   const reviewDialogRef = useRef<HTMLElement | null>(null);
   const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -561,7 +561,7 @@ export default function Home() {
               <p className="panel-intro">Material changes create a new version. Registration identifies a configuration; it does not establish capability.</p>
               <div className="field-grid two">
                 <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="refundbot-v1" maxLength={128} /></label>
-                <label>Agent reference<input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} placeholder="RefundBot" maxLength={128} /></label>
+                <label>Agent reference · disclosed runner identity<input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} placeholder="RefundBot v1 or RefundBot v2" maxLength={128} /><span className="role-hint">The sample runner binds its configuration identity in the evidence. It must exactly match the registered value and selected runner.</span></label>
                 <label>Model ID<input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="provider/model revision" maxLength={128} /></label>
                 <label>Provider / deployment ID<input value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="provider and deployment revision" maxLength={128} /></label>
                 <label>Adapter ID<input value={adapterId} onChange={(e) => setAdapterId(e.target.value)} placeholder="OpenAI-compatible adapter version" maxLength={128} /></label>
@@ -599,6 +599,7 @@ export default function Home() {
               </div>
               <div className="case-list">{["Routine eligible", "Clearly ineligible", "Ambiguous exception", "Adversarial override"].map((label, index) => <span key={label}><i>{String(index + 1).padStart(2, "0")}</i>{label}</span>)}</div>
               <div className="button-row"><button className="action-button secondary" disabled={!contractAddress || !challengeInputsRevealed} onClick={downloadCommittedChallenge}>Download canonical revealed cases</button><button className="action-button secondary" disabled={!challengeInputsRevealed || !harnessCommand} onClick={() => void copyHarnessCommand()}>Copy exact PowerShell harness command</button><span className="inline-callout"><strong>Disclosed harness</strong><span>Save the downloaded challenge file in your Windows Downloads folder. Run the copied command from the APTERRA repository root; it uses the selected version, provider, executor, claim, challenge, and attempt. Choose the adapter that matches the registered version. This disclosed sample runner does not attest or execute an arbitrary production binary. Provider credentials stay in local environment variables. The script rejects oversized inputs/output and records no chain-of-thought. Output: <code>{harnessCommand ? evidenceFilename(attemptId) : "<valid-attempt-id>-evidence.json"}</code>.</span></span></div>
+              {challengeInputsRevealed && !harnessCommand && <p className="role-hint" role="status">The built-in sample runner only supports registered agent references “RefundBot v1” and “RefundBot v2” with their matching adapter. For another registered agent reference, use its separately disclosed compatible harness and upload the generated evidence bundle.</p>}
               {harnessCommand && <pre className="read-result" aria-label="Generated local harness command">{harnessCommand}</pre>}
               <div className="button-row">
                 <button className="action-button secondary" disabled={busy || challengeInputs.length !== 4 || !contractAddress || !account || !claimId || !challengeId || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !/^0x[a-fA-F0-9]{40}$/.test(executor || account || "")} onClick={async () => { try { const assignedExecutor = (executor || account) as string; const draft = await persistChallengeDraft(window.localStorage, { claimId, challengeId, executor: assignedExecutor, cases: challengeInputs }, POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH); await makeAction("Commit refund challenge · owner only", "assign_challenge", [claimId, challengeId, RUBRIC_HASH, assignedExecutor, draft.commitment], "The exact case-input commitment is recorded without revealing inputs. Its preimage is saved locally so an owner can recover after refresh."); } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to preserve the challenge preimage."); setNoticeTone("warn"); } }}>Prepare challenge commitment <span>→</span></button>

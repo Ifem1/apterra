@@ -4,6 +4,7 @@ import { buildPowerShellHarnessCommand, challengeFilename, evidenceFilename } fr
 
 const input = {
   agent: "refundbot-v1",
+  agentRef: "RefundBot v1",
   versionId: "version-one",
   providerId: "provider-one",
   executorId: "0x1111111111111111111111111111111111111111",
@@ -27,4 +28,5 @@ test("PowerShell quoting escapes apostrophes and rejects command-line control ch
   assert.match(buildPowerShellHarnessCommand({ ...input, providerId: "provider's test" }), /--provider-id 'provider''s test'/);
   assert.throws(() => buildPowerShellHarnessCommand({ ...input, versionId: "version\n; malicious" }), /control character/);
   assert.throws(() => buildPowerShellHarnessCommand({ ...input, agent: "other-agent" }), /Harness agent/);
+  assert.throws(() => buildPowerShellHarnessCommand({ ...input, agent: "refundbot-v2" }), /Registered agent reference must match/);
 });
