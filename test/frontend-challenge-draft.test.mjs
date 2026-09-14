@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CHALLENGE_DRAFT_KEY, persistChallengeDraft, restoreChallengeDraft } from "../src/lib/challenge-draft.ts";
+import { CHALLENGE_DRAFT_KEY, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft } from "../src/lib/challenge-draft.ts";
 
 const HASHES = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
 const CASES = [
@@ -46,4 +46,19 @@ test("invalid, duplicate, incomplete, or different-policy challenge drafts are n
   await assert.rejects(persistChallengeDraft(storage, {
     claimId: "claim-1", challengeId: "challenge-1", executor: "0x1111111111111111111111111111111111111111", cases: duplicate,
   }, ...HASHES), /outside the supported schema/);
+});
+
+test("canonical assignment match requires the same digest, claim, challenge, and executor", async () => {
+  const storage = memoryStorage();
+  const local = await persistChallengeDraft(storage, {
+    claimId: "claim-1", challengeId: "challenge-1", executor: "0x1111111111111111111111111111111111111111", cases: CASES,
+  }, ...HASHES);
+  const assignment = {
+    claim_id: "claim-1", id: "challenge-1", executor: local.executor, case_inputs_hash: local.commitment,
+  };
+  assert.equal(await matchesChallengeAssignment(CASES, local, assignment, ...HASHES), true);
+  assert.equal(await matchesChallengeAssignment(CASES, local, { ...assignment, claim_id: "other-claim" }, ...HASHES), false);
+  assert.equal(await matchesChallengeAssignment(CASES, local, { ...assignment, id: "other-challenge" }, ...HASHES), false);
+  assert.equal(await matchesChallengeAssignment(CASES, local, { ...assignment, executor: "0x2222222222222222222222222222222222222222" }, ...HASHES), false);
+  assert.equal(await matchesChallengeAssignment(CASES, local, { ...assignment, case_inputs_hash: "0".repeat(64) }, ...HASHES), false);
 });

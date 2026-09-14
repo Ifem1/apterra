@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ContractAction } from "@/lib/transactions";
 import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycle } from "@/lib/transactions";
-import { persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
+import { matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
 import {
   APTERRA_NETWORK,
   assertStudioDev,
@@ -285,24 +285,49 @@ export default function Home() {
       });
       const ownerValue = typeof result === "string" ? result : (result as { as_hex?: string } | null)?.as_hex;
       if (method === "get_owner" && typeof ownerValue === "string") setContractOwner(ownerValue);
+      let challengeProblem = "";
       if (method === "get_challenge" && typeof result === "string") {
         try {
-          const challenge = JSON.parse(result) as { status?: string; case_inputs?: ChallengeInput[] };
-          setChallengeAssignmentCommitted(challenge.status === "ASSIGNED_NOT_REVEALED");
-          setChallengeInputsRevealed(challenge.status === "REVEALED");
-          if (challenge.status === "REVEALED" && Array.isArray(challenge.case_inputs)) setChallengeInputs(challenge.case_inputs);
+          const challenge = JSON.parse(result) as {
+            status?: string; case_inputs?: ChallengeInput[]; case_inputs_hash?: string;
+            id?: string; claim_id?: string; executor?: string;
+          };
+          const expectedClaimId = recordId ?? claimId;
+          const expectedExecutor = executor || account || "";
+          if (challenge.status === "ASSIGNED_NOT_REVEALED") {
+            const matches = await matchesChallengeAssignment(challengeInputs,
+              { claimId: expectedClaimId, challengeId, executor: expectedExecutor }, challenge,
+              POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH);
+            setChallengeAssignmentCommitted(matches);
+            setChallengeInputsRevealed(false);
+            if (!matches) challengeProblem = "Canonical challenge assignment does not match this local preimage, claim, challenge ID, or executor. Reveal is disabled; recover the matching draft before proceeding.";
+          } else if (challenge.status === "REVEALED" && Array.isArray(challenge.case_inputs)) {
+            const matches = await matchesChallengeAssignment(challenge.case_inputs,
+              { claimId: expectedClaimId, challengeId, executor: expectedExecutor }, challenge,
+              POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH);
+            setChallengeAssignmentCommitted(false);
+            setChallengeInputsRevealed(matches);
+            if (matches) setChallengeInputs(challenge.case_inputs);
+            else challengeProblem = "Canonical revealed inputs or assignment bindings failed commitment verification. Do not use this challenge result.";
+          } else {
+            setChallengeAssignmentCommitted(false);
+            setChallengeInputsRevealed(false);
+          }
+        } catch {
+          setChallengeAssignmentCommitted(false);
+          setChallengeInputsRevealed(false);
+          challengeProblem = "Canonical challenge response could not be parsed; reveal is disabled.";
         }
-        catch { setChallengeAssignmentCommitted(false); }
       }
       setReadResult(explainRead(method, result));
-      setNotice(`Canonical Studio Dev read completed: ${method}.`);
-      setNoticeTone("good");
+      setNotice(challengeProblem || `Canonical Studio Dev read completed: ${method}.`);
+      setNoticeTone(challengeProblem ? "warn" : "good");
     } catch (error) {
       setReadResult("");
       setNotice(error instanceof Error ? error.message : "Canonical read failed.");
       setNoticeTone("warn");
     } finally { setReadBusy(false); }
-  }, [contractAddress, queryId, versionId]);
+  }, [account, challengeId, challengeInputs, claimId, contractAddress, executor, queryId, versionId]);
 
   const prepare = useCallback(async (action: ContractAction) => {
     if (!contractAddress) {

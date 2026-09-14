@@ -34,6 +34,21 @@ export async function computeChallengeCommitment(
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+export async function matchesChallengeAssignment(
+  cases: ChallengeInput[],
+  local: { claimId: string; challengeId: string; executor: string },
+  assignment: { claim_id?: unknown; id?: unknown; executor?: unknown; case_inputs_hash?: unknown },
+  policyHash: string,
+  riskPolicyHash: string,
+  rubricHash: string,
+): Promise<boolean> {
+  if (typeof assignment.claim_id !== "string" || assignment.claim_id !== local.claimId
+    || typeof assignment.id !== "string" || assignment.id !== local.challengeId
+    || typeof assignment.executor !== "string" || assignment.executor.toLowerCase() !== local.executor.toLowerCase()
+    || typeof assignment.case_inputs_hash !== "string" || !/^[a-f0-9]{64}$/.test(assignment.case_inputs_hash)) return false;
+  return await computeChallengeCommitment(cases, policyHash, riskPolicyHash, rubricHash) === assignment.case_inputs_hash;
+}
+
 function isDraft(value: unknown): value is ChallengeDraft {
   if (!value || typeof value !== "object") return false;
   const draft = value as Record<string, unknown>;
