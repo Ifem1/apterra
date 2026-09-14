@@ -7,10 +7,10 @@ No VM, calldata, contract, or assertion behavior is replaced.
 """
 
 import os
+from gltest.direct.vm import VMContext as _VMContext
 
 if os.name == "nt":
     from gltest.direct import loader as _loader
-    from gltest.direct.vm import VMContext as _VMContext
 
     # The RC loader imports os inside the injection function rather than as a
     # module attribute; expose the shared module for the narrowly scoped patch.
