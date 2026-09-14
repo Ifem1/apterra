@@ -18,7 +18,6 @@ if os.name == "nt":
 
     _original_inject = _loader._inject_message_to_fd0
     _original_cleanup = _VMContext._cleanup_after_deactivate
-    _original_warp = _VMContext.warp
     _original_unlink = os.unlink
 
     def _defer_locked_stdin_unlink(vm):
@@ -52,13 +51,20 @@ if os.name == "nt":
                     pass
             vm._apterra_deferred_stdin_paths = []
 
-    def _warp_and_sync_raw_message(vm, timestamp):
-        _original_warp(vm, timestamp)
-        message = __import__("sys").modules.get("genlayer.message")
-        raw = getattr(message, "raw", None) if message is not None else None
-        if isinstance(raw, dict):
-            raw["datetime"] = timestamp
-
     _loader._inject_message_to_fd0 = _defer_locked_stdin_unlink
     _VMContext._cleanup_after_deactivate = _cleanup_deferred_stdin
-    _VMContext.warp = _warp_and_sync_raw_message
+
+# Contract code reads its deterministic block timestamp from the raw message.
+# Keep that view synchronized with the direct runner's warp clock on every OS;
+# otherwise expiry tests depend on the runner host's wall clock instead of the
+# test's explicit timestamp.
+_original_warp = _VMContext.warp
+
+def _warp_and_sync_raw_message(vm, timestamp):
+    _original_warp(vm, timestamp)
+    message = __import__("sys").modules.get("genlayer.message")
+    raw = getattr(message, "raw", None) if message is not None else None
+    if isinstance(raw, dict):
+        raw["datetime"] = timestamp
+
+_VMContext.warp = _warp_and_sync_raw_message

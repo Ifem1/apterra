@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ContractAction } from "@/lib/transactions";
 import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycle } from "@/lib/transactions";
 import { generateChallengeInputs, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
+import { parseAgentVersionIds, parseAgentVersionRecord, type AgentVersionRecord } from "@/lib/version-history";
 import {
   APTERRA_NETWORK,
   configuredContractAddress,
@@ -125,6 +126,8 @@ export default function Home() {
   const [prepared, setPrepared] = useState<PreparedWrite | null>(null);
   const [readResult, setReadResult] = useState("");
   const [readBusy, setReadBusy] = useState(false);
+  const [versionHistory, setVersionHistory] = useState<Array<{ id: string; record?: AgentVersionRecord; error?: string }>>([]);
+  const [versionHistoryTotal, setVersionHistoryTotal] = useState(0);
   const [pending, setPending] = useState<PendingTransaction[]>([]);
   const [versionId, setVersionId] = useState("");
   const [agentRef, setAgentRef] = useState("");
@@ -270,6 +273,10 @@ export default function Home() {
   const readCanonical = useCallback(async (method: string, recordId?: string) => {
     if (!contractAddress) return;
     setReadBusy(true);
+    if (method === "get_agent_version_ids") {
+      setVersionHistory([]);
+      setVersionHistoryTotal(0);
+    }
     try {
       const result = await readClient.readContract({
         address: contractAddress,
@@ -278,6 +285,34 @@ export default function Home() {
       });
       const ownerValue = typeof result === "string" ? result : (result as { as_hex?: string } | null)?.as_hex;
       if (method === "get_owner" && typeof ownerValue === "string") setContractOwner(ownerValue);
+      if (method === "get_agent_version_ids") {
+        const ids = parseAgentVersionIds(ownerValue);
+        setVersionHistoryTotal(ids.length);
+        const rows: Array<{ id: string; record?: AgentVersionRecord; error?: string }> = [];
+        for (let offset = 0; offset < ids.length; offset += 16) {
+          const batch = ids.slice(offset, offset + 16);
+          const details = await Promise.all(batch.map(async (id) => {
+            try {
+              const version = await readClient.readContract({
+                address: contractAddress,
+                functionName: "get_agent_version",
+                args: [id] as never[],
+              });
+              const value = typeof version === "string" ? version : (version as { as_hex?: string } | null)?.as_hex;
+              return { id, record: parseAgentVersionRecord(value, id) };
+            } catch (error) {
+              return { id, error: error instanceof Error ? error.message : "Canonical record could not be read." };
+            }
+          }));
+          rows.push(...details);
+        }
+        setVersionHistory(rows);
+        const failures = rows.filter((row) => row.error).length;
+        setReadResult(`Canonical on-chain agent-version catalog contains ${ids.length} immutable version ID${ids.length === 1 ? "" : "s"}. ${failures ? `${failures} detail read${failures === 1 ? "" : "s"} failed; those statuses are unknown and must not be inferred.` : "Every version detail was read from the contract."}`);
+        setNotice(`Canonical Studio Dev read completed: ${method}${failures ? ` (${failures} detail read failures)` : ""}.`);
+        setNoticeTone(failures ? "warn" : "good");
+        return;
+      }
       let challengeProblem = "";
       if (method === "get_challenge" && typeof result === "string") {
         try {
@@ -599,6 +634,24 @@ export default function Home() {
                 <label>Owner revocation reason<input value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} maxLength={128} /></label>
                 <button className="action-button secondary" disabled={busy || !contractAddress || !account || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !queryId || !revokeReason.trim()} onClick={() => makeAction("Revoke active warrant · owner only", "revoke_warrant", [queryId, revokeReason], "Owner revocation disables this active warrant permanently; it does not delete history or revive previously revoked authority.")}>Prepare warrant revocation <span>→</span></button>
               </div>
+              {versionHistory.length > 0 && <section aria-label="Canonical agent version history" className="read-result">
+                <h4>Agent version history · {versionHistory.length} of {versionHistoryTotal}</h4>
+                <p>Every entry below is read from the deployed contract. Unknown or failed status reads are not treated as active.</p>
+                <ol>
+                  {versionHistory.map(({ id, record, error }) => <li key={id}>
+                    <p><strong>{id}</strong> · {record?.status === "ACTIVE" ? "Active" : record?.status === "SUSPENDED" ? "Suspended" : "Status unknown — treat as inactive"}</p>
+                    {record ? <dl>
+                      <dt>Created</dt><dd>{record.created_at}</dd><dt>Operator</dt><dd>{record.operator}</dd>
+                      <dt>Agent / model / provider</dt><dd>{record.agent_ref} / {record.model_id} / {record.provider_id}</dd>
+                      <dt>Adapter / harness</dt><dd>{record.adapter_id} / {record.harness_version}</dd>
+                      <dt>System-policy hash</dt><dd><code>{record.system_policy_hash}</code></dd>
+                      <dt>Tool-manifest hash</dt><dd><code>{record.tool_manifest_hash}</code></dd>
+                      <dt>Runtime hash</dt><dd><code>{record.runtime_hash}</code></dd>
+                    </dl> : <p role="status">Version detail unavailable: {error ?? "the canonical record could not be validated."}</p>}
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress} onClick={() => { setVersionId(id); void readCanonical("get_agent_version", id); }}>Inspect canonical version</button>
+                  </li>)}
+                </ol>
+              </section>}
               {readResult && <pre className="read-result" aria-label="Canonical contract readback">{readResult}</pre>}
             </article>
           </div>
