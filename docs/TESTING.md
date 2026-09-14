@@ -1,15 +1,32 @@
 # Testing and verification
 
-## Local checks
+## Reproducible local checks (Windows PowerShell)
 
-Run `npm run lint`, `npm run typecheck`, and `npm run build` for the console and release guard. The current `lint` script ESLint-checks the Studio Dev-only release guard and runs the TypeScript typecheck; it does not claim a full TSX ESLint pass. `next build` currently reports that the optional Next ESLint plugin is not configured. Run `python -m pytest -q test/test_harness.py test/test_underwriting_pure.py` for offline harness checks plus the contract's AST-extracted deterministic findings functions. These do not emulate GenVM. The GenLayer direct suite is `python -m pytest -q`; it must execute against the pinned RC runner and must not be replaced by a network test.
+Install frontend dependencies from `package-lock.json` with `npm ci`. Python validation uses the exact versions in `requirements-ci.txt`. The pinned GenVM RC5 bundle must be available locally; `genvm-lint download --version v0.6.0-rc5` prepares the official cache.
 
-The direct suite covers lifecycle/access control, commitment and evidence validation, canonical verdict mapping, malformed findings, warrant replacement/suspension/revocation, amount limits, expiry, and nonce replay. Authored tests are not evidence of a passing run: check [Gate 0 Foundation Report](GATE_0_FOUNDATION_REPORT.md) for the observed blocker and exact completed runs.
+```powershell
+npm run lint
+npm run test:frontend
+npx playwright install chromium
+npm run test:e2e
+npm run build
+$env:GENVM_PREBUILT_DIR = Join-Path (Get-Location) '.tooling\genvm-v0.6.0-rc5'
+$env:USERPROFILE = Join-Path (Get-Location) '.tooling\gltest-user'
+$env:PYTHONIOENCODING = 'utf-8'
+python -m pytest -q --tb=short
+genvm-lint check contracts/apterra.py --json
+genvm-lint typecheck contracts/apterra.py
+genvm-lint schema contracts/apterra.py --json
+```
 
-## Studio Dev verification
+The Windows `test/conftest.py` shim only defers deletion of the locked GenLayer Test stdin tempfile until VM teardown and keeps the test VM timestamp in sync after `warp`. It does not replace contract execution or assertions. The direct suite runs against `genlayer-test==0.30.0rc2` and the matching official v0.6.0-rc5 bundle. Latest observed direct run: `python -m pytest -vv -q --tb=short` with isolated `USERPROFILE`, `GENVM_PREBUILT_DIR`, and `PYTHONIOENCODING=utf-8`: **50 passed in 19.39s**. It covers the current contract and harness source, not live consensus.
 
-Use only CLI preset `studio-dev`, SDK chain `studioDevnet`, RPC `https://studio-dev.genlayer.com/api`, chain ID `61997`. Verify deployment, finalized writes, and canonical readback against explorer `https://explorer-studio-dev.genlayer.com`. Record transaction hashes, finality, and readback in [Live Evidence](LIVE_EVIDENCE.md). Local tests, AST lint, mocked providers, and direct calls do not prove consensus execution.
+Frontend lint covers TS/TSX via ESLint 9, `@typescript-eslint` 8.70.0 and the matching Next plugin, and runs TypeScript typecheck plus the Studio Dev-only runtime guard; the full command passed. Deterministic frontend unit tests passed **3/3**. Playwright 1.62.0 browser tests are intentionally non-mocked and currently cover fail-closed unconfigured deployment and oversized evidence rejection only; both Chromium test bodies reported `ok`, but the local Playwright process again failed to exit after both results and was interrupted. Treat the browser command as teardown-unresolved and coverage-incomplete, not as a clean E2E pass.
 
-## Current boundary
+`genvm-lint check contracts/apterra.py --json` passed with SDK validation (3 lint checks; 25 contract methods: 11 writes and 14 views); schema extraction and SDK typecheck passed. A warning remains because Windows cannot resolve GitHub latest-runner metadata (`WinError 10013`); the pinned RC5 bundle was used. The production build passed for Next.js 15.5.22, but emitted a warning that the Next.js plugin was not detected in the Next build's own ESLint integration despite it being included in the explicit ESLint 9 configuration and passing. `npm audit --omit=dev` could not reach the npm advisories endpoint in this network-restricted environment; no audit result is claimed. No local direct test substitutes for consensus execution.
 
-The required GenVM runner artifact is not yet resolved in the current Windows environment; the contract direct suite and deployment smoke therefore remain incomplete. See the foundation report. Do not mark Gates 0–4 passed until each gate's required tests and real-network checks have completed.
+## Studio Dev and live flow
+
+Only `studio-dev` / SDK `studioDevnet` / canonical RPC `https://studio-dev.genlayer.com/api` / chain 61997 (`0xf22d`) are allowed. Read `eth_chainId` immediately before every live deployment/write session and fail closed otherwise. The browser displays the transaction hash and waits on the same transaction; it must never blindly resubmit after timeout. Keep the deployment proposal paused until the owner has reviewed and approved the exact source, constructor, sender, fresh operation-specific fee quote, and state effect. Record finalized decision, execution result and canonical readback in the single [requirements/evidence ledger](REQUIREMENTS_MATRIX.md).
+
+Do not run a deployment, real wallet transaction, or claim any live proof without explicit owner wallet signing. No Studio Dev APTERRA deployment or public production frontend exists at this checkpoint.

@@ -1,32 +1,44 @@
 # Studio Dev Preview Toolchain
 
-This project targets the Agent Tank / Studio Dev preview only. Release-critical packages are exact pins; stable Studionet packages are not substitutes.
+The only supported live environment is the Agent Tank GenLayer Studio Dev preview, not stable Studionet. Keep a coherent pinned v0.6 RC family.
 
-| Component | Exact version / identity | Verification state |
-| --- | --- | --- |
-| Studio / consensus | `0.123.0-rc.6` / Consensus `v0.6 RC` | Target family from the supplied product specification; current deployed build not independently confirmed in this session |
-| Network | CLI alias `studio-dev`; chain `61997` / `0xf22d` | Project-local CLI `network list` / `network info` and RPC returned chain 61997 on 2026-09-13 |
-| RPC / explorer | `https://studio-dev.genlayer.com/api` / `https://explorer-studio-dev.genlayer.com` | SDK `studioDevnet` URL and RPC response verified; explorer target from canonical specification |
-| CLI | `genlayer@0.40.0-rc.3` | Installed project-locally; use `node_modules/.bin/genlayer.cmd`; exact pin in package manifest/lock |
-| JavaScript SDK | `genlayer-js@2.0.0-rc.1` | Installed and `studioDevnet` definition inspected |
-| Python SDK | `genlayer-py==0.19.0rc2` | Installed |
-| Direct test runner | `genlayer-test==0.30.0rc2` | Installed; test execution is blocked pending exact runner artifact resolution |
-| Linter | `genvm-linter==0.11.1rc2` | Installed; AST lint runs, artifact-backed SDK setup does not complete |
-| Required contract runner | `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng` | Header pin per supplied spec; artifact was not found/downloadable by the current cache/network path |
-| Required standard library runner | `py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0` | Expected by supplied spec; not yet resolved/verified |
-| Node / npm / Python | `v24.16.0` / `11.13.0` / `3.12.10` | Observed locally |
-| Transaction Kit | None yet | Required package/revision availability still to be verified before frontend transaction implementation |
+| Component | Exact pin / identity | Observed state |
+|---|---|---|
+| GenLayer CLI | `genlayer@0.40.0-rc.3` | Project-local dependency in `package.json`/lock; invoke `node_modules/.bin/genlayer.cmd` on Windows, never the broken global executable |
+| GenLayer JS SDK | `genlayer-js@2.0.0-rc.1` | Exact lock pin; `studioDevnet` import in `src/lib/network.ts` |
+| GenLayer Python SDK | `genlayer-py==0.19.0rc2` | Installed and pinned in `requirements-ci.txt` |
+| Direct test runner | `genlayer-test==0.30.0rc2` | Installed and pinned; Windows direct suite ran successfully (48 tests at current working checkpoint) |
+| GenVM linter | `genvm-linter==0.11.1rc2` | Installed and pinned; `check`, schema, and typecheck pass against the RC5 cache |
+| GenVM runtime bundle | `v0.6.0-rc5`; contract runner hash `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng`; standard library `py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0` | Official pinned manager bundle staged under ignored `.tooling` and consumed by direct tests/linter |
+| Studio / consensus | `0.123.0-rc.6` / Consensus v0.6 RC | Recorded as the preview family from official v0.6 guidance; Studio Dev preview state may reset |
+| Node / npm / Python | Node `24.16.0`, npm `11.13.0`, Python `3.12.10` | Observed locally; unchanged |
+| Frontend lint/browser tests | ESLint `9.21.0`, Next plugin `15.5.22`, TypeScript ESLint parser/plugin `8.70.0`, Playwright `1.62.0` | Exact Node dependency lock; browser setup still requires clean-exit rerun |
 
-## Artifact diagnostic
-
-`genvm-lint setup --contract contracts/apterra.py --json` returned `ok: false`; the linter attempted to resolve the `py-genlayer` header under its cache and failed with Windows `WinError 5` on `%USERPROFILE%\.cache\genvm-linter\extracted\genlayerlabs-genvm-manager-v0.6.0-rc5\py-genlayer\5jyc...`. The matching exact runner artifact is not present in the readable cached tree (which contains only `1jb45...`). Network access to GitHub is blocked (`WinError 10013`) even on the approved retry. The direct test runner's attempted download of `https://github.com/genlayerlabs/genvm-manager/releases/download/v0.6.0-rc3/genvm-runners-all.tar.xz` failed for the same reason. No stable runner was substituted.
-
-## Network identities
+## Studio Dev identity
 
 - CLI preset: `studio-dev`
-- JavaScript SDK chain: `studioDevnet`
-- Python SDK chain: `studio_devnet`
-- Canonical RPC: `https://studio-dev.genlayer.com/api`
+- SDK chain: `studioDevnet`
+- Python SDK chain name: `studio_devnet`
+- RPC: `https://studio-dev.genlayer.com/api`
 - Chain ID: decimal `61997`, hex `0xf22d`
 - Explorer: `https://explorer-studio-dev.genlayer.com`
-- Studio Dev consensus addresses from local CLI `network info` on 2026-09-13: `0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575` (main) and `0x88B0F18613Db92Bf970FfE264E02496e20a74D16` (data). Staking, fee manager, rounds storage and appeals are reported as not set.
+- `studio-next`, if exposed by a compatible CLI version, is only a CLI alias for this same preview. It is not a stable Studionet label.
+
+Network identity was independently checked at the RC configuration checkpoint. Re-read RPC `eth_chainId` immediately before every deployment/write session; no historical address, fee quote or balance is current authorization. Never substitute Studionet 61999, Bradbury or a local simulator for live evidence.
+
+## CLI package diagnostic and invocation
+
+The published `genlayer@0.40.0-rc.3` tarball was inspected once; it contains the declared `package/dist/index.js` entry target. The earlier global install is not relied on. Use the workspace-local Windows command for subsequent CLI work:
+
+```powershell
+.\node_modules\.bin\genlayer.cmd --version
+.\node_modules\.bin\genlayer.cmd network list
+.\node_modules\.bin\genlayer.cmd network set studio-dev
+.\node_modules\.bin\genlayer.cmd network info
+```
+
+This project does not use a mixed stable/RC package set. npm currently reports 16 advisories across the development dependency tree; inspect `npm audit` and resolve compatible advisories before declaring a release build clean. Do not run `npm audit fix --force` because it can change the pinned Next/GenLayer family.
+
+## Runner/network warning
+
+`genvm-lint check`, schema and typecheck each emitted a warning that this Windows environment cannot query GitHub for the latest GenVM manager release (`WinError 10013`). They completed with the locally staged, exact v0.6.0-rc5 runner: lint/SDK validation passed, schema extraction passed, SDK typecheck passed. The pinned direct runner is not substituted by stable versions. CI fetches the explicit `v0.6.0-rc5` bundle.

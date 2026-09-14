@@ -4,9 +4,9 @@
 
 APTERRA underwrites one capability only: `REFUND` under `refund_policy_v4_2`. The single GenLayer Intelligent Contract (`ApterraUnderwriter`) is authoritative for versions, claims, immutable challenge assignments, attempt commitments, accepted bounded findings, deterministic verdicts, warrants, and authority-consumption receipts. No browser state, test fixture, or harness output can create a verdict or authorize an action.
 
-The canonical lifecycle is:
+The current refund-profile lifecycle is:
 
-`ACTIVE version → CLAIMED → CHALLENGE_COMMITTED → ATTEMPT_SUBMITTED → pending GenLayer judgment transaction → CERTIFY | LIMIT | DENY | INCONCLUSIVE → warrant / withheld → permission receipt`
+`ACTIVE version → CLAIMED → CHALLENGE_ASSIGNED (hash/executor only) → CHALLENGE_COMMITTED (owner reveal verified) → ATTEMPT_SUBMITTED → pending GenLayer judgment transaction → CERTIFY | LIMIT | DENY | INCONCLUSIVE → warrant / withheld → protected sandbox adapter action`
 
 `UNDER_JUDGMENT` is a transaction/explorer lifecycle status, not a durable contract claim state. Contract writes commit atomically after execution/consensus, so while judgment is pending the persistent claim and attempt remain `ATTEMPT_SUBMITTED`. Successful finalization stores the judgment and terminal claim state. Reverted/undetermined transactions leave the submitted attempt retryable with no judgment/warrant side effects. Retrying is a new authorized transaction after checking the prior transaction's terminal status. This behavior still needs pinned direct-GenVM and live Studio Dev verification.
 
@@ -16,10 +16,12 @@ The canonical lifecycle is:
 | --- | --- | --- | --- | --- |
 | `register_agent_version` | claimant | new version ID | version ID and commitment unique | `ACTIVE` version |
 | `create_claim` | version operator | active version | requested amount, policy hash, scope fixed | `CLAIMED` |
-| `assign_challenge` | contract owner | `CLAIMED` | one assignment only; policy/rubric/risk hashes fixed | `CHALLENGE_COMMITTED` |
+| `assign_challenge` | contract owner | `CLAIMED` | commits input digest and executor before reveal | `CHALLENGE_ASSIGNED` |
+| `reveal_challenge_inputs` | contract owner | `CHALLENGE_ASSIGNED` | reveal must match exact prior digest; single-use | `CHALLENGE_COMMITTED` |
 | `submit_attempt` | assigned executor | `CHALLENGE_COMMITTED` | bundle hash and attempt ID unique; manifest must bind assignment | `ATTEMPT_SUBMITTED` |
 | `underwrite_attempt` | any caller | `ATTEMPT_SUBMITTED` | one judgment only | canonical verdict, receipt, and warrant consequence |
-| `consume_authority` | any caller | active version + active warrant | action nonce unique | receipt or deterministic revert |
+| `approve_limit_override` | claim-bound distinct approver | active LIMIT warrant | exact one-use action/amount/resource/consumer/operation/expiry approval | approval record |
+| `execute_sandbox_refund` | claim-bound consumer | active warrant and valid scoped request | one-use nonce, operation and optional exact LIMIT approval | sandbox action or deterministic revert |
 | `suspend/revoke` | contract owner | extant record | reason code bounded | authority disabled |
 
 ## Exact commitments
@@ -30,11 +32,11 @@ The canonical lifecycle is:
 
 ### Challenge assignment
 
-`challenge_id`, class (`refund_policy_v4_2`), exact bounded case JSON and per-case canonical input hashes, a set hash that commits policy/risk/rubric versions, assigned executor, and timestamps. Submitted case input hashes must match this assignment. Evidence identity must match both the assignment and submitting transaction. This identity consistency check is not cryptographic attestation of a process or agent.
+`challenge_id`, class (`refund_policy_v4_2`), an input digest and assigned executor are committed first. A separate owner-only reveal stores exact bounded cases and per-case canonical input hashes only if the set hash (including policy/risk/rubric hashes) matches. The challenge has a 7-day window. Per-session IDs and sample variants rotate; the small public fixture catalog is not strong contamination resistance or proof of general capability. Evidence identity must match assignment and sender, but that consistency is not process/agent attestation.
 
 ### Evidence manifest
 
-`schema_version`, attempt/claim/version/challenge IDs, all commitment hashes, harness version/identity, provider/model ID, per-case input and output hashes, structured action and amount, short reason, and a canonical SHA-256 bundle hash. The contract validates the bounded raw response hash and requires its parsed action/amount to match the structured fields. Full evidence is retained on-chain in the current MVP. Hashes prove commitment to bytes, not that a production agent ran them. The executor/provider are trusted; sender/claimed identity consistency is not proof of execution. No TEE attestation is claimed or specified as a Phase 1 requirement.
+`schema_version`, run/attempt/claim/version/challenge IDs, environment and time bounds, all policy/rubric/version commitments, harness/executor/provider/model identity, tool-trace hash, per-case input/output hashes, structured action/amount/reason, and a canonical SHA-256 bundle hash. The contract validates the bounded raw response hash and requires parsed action/amount agreement. Full bounded evidence is retained on-chain. Hashes prove commitment to bytes, not that a production agent ran them; submitter/provider assertions are trusted, not attested. No TEE/provider attestation is claimed.
 
 ### Semantic judgment
 
@@ -58,4 +60,4 @@ The frontend reads contract state and renders it. It never derives a verdict, ce
 
 ## Phase boundary
 
-There is no external-chain receiver, bridge, settlement system, database authority, token, or custodial flow. `consume_authority` is a GenLayer-native permission check bound to the claim's consumer, resource, operation ID, amount, and single-use nonce; a receipt is not a refund, transfer, or proof of external execution. A full external downstream adapter/settlement flow is not implemented and is not represented as working.
+`execute_sandbox_refund` is a GenLayer-native downstream adapter: it checks current authority immediately before changing adapter action state, binds consumer/resource/operation/amount/nonce, optionally consumes an exact LIMIT human approval, and atomically stores an executed sandbox outcome. It demonstrates allow/block enforcement only. It moves no funds and is not a real refund, external settlement, transfer, bridge, database authority, token, or custody flow. The broader compendium product/catalog beyond this refund vertical slice remains incomplete.

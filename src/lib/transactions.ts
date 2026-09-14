@@ -1,5 +1,6 @@
 import type { createClient } from "genlayer-js";
 import { configuredFeePolicyHash } from "@/lib/network";
+export { summarizeTransactionLifecycle } from "@/lib/transaction-lifecycle";
 
 type Client = ReturnType<typeof createClient>;
 export type ContractAction = {

@@ -1,0 +1,51 @@
+name: APTERRA Phase 1 verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12.10
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Frontend lint (JS, TS and TSX)
+        run: npm run lint
+      - name: Frontend deterministic tests
+        run: npm run test:frontend
+      - name: Install Chromium for browser smoke tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: npm run test:e2e
+      - name: Production build
+        run: npm run build
+      - name: Install pinned GenLayer tooling
+        run: python -m pip install -r requirements-ci.txt
+      - name: Fetch the pinned GenVM bundle
+        run: |
+          genvm-lint download --version v0.6.0-rc5
+          echo "GENVM_PREBUILT_DIR=$HOME/.cache/genvm-linter/extracted/genlayerlabs-genvm-manager-v0.6.0-rc5" >> "$GITHUB_ENV"
+          echo "PYTHONIOENCODING=utf-8" >> "$GITHUB_ENV"
+      - name: GenVM lint and SDK validation
+        run: genvm-lint check contracts/apterra.py --json
+      - name: GenVM SDK typecheck
+        run: genvm-lint typecheck contracts/apterra.py
+      - name: Contract schema extraction
+        run: genvm-lint schema contracts/apterra.py --json
+      - name: Pinned direct GenLayer suite
+        run: python -m pytest -q --tb=short

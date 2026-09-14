@@ -1,11 +1,13 @@
-# Studio Dev live evidence ledger
+# Studio Dev live-evidence register
 
-Only finalized results from Studio Dev chain `61997` count as live evidence. Record a row only after independently checking the transaction and canonical contract readback.
+The canonical evidence ledger is [the requirements matrix](REQUIREMENTS_MATRIX.md); this file is intentionally only a compact index, not a second source of status. Studio Dev preview evidence is ephemeral and must include finality, execution result, source hash and canonical readback.
 
-| Event | Contract | Transaction | Finality / decision | Canonical readback | Source commit | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| Gate 0 corrected smoke | Not deployed | Not run | Not verified | Not run | — | RC runner artifact unresolved; see [foundation report](GATE_0_FOUNDATION_REPORT.md). |
-| APTERRA Phase 1 deployment | Not deployed | Not run | Not verified | Not run | — | Requires successful Gate 0, direct tests, and approval of exact deployment transaction. |
-| Semantic underwriting | Not run | Not run | Not verified | Not run | — | No live consensus transaction is claimed. |
+| Required event | Current status | Contract / tx / explorer | Finality and readback |
+|---|---|---|---|
+| Gate 0 Studio Dev APTERRA deployment | BLOCKED pending owner wallet review/signature | No address or deployment transaction | No deployment has been submitted |
+| Agent version + claim + split challenge commit/reveal | NOT RUN live | None | No canonical readback |
+| Evidence submission + semantic underwriting (CERTIFY/LIMIT/DENY/INCONCLUSIVE) | NOT RUN live | None | Direct-mode semantic mocks are not live consensus proof |
+| LIMIT human approval and adapter allowed/blocked actions | NOT RUN live | None | Local direct regressions are not live consumer/approver transactions |
+| Public frontend production deployment | BLOCKED by absent Vercel account/project auth | No public URL/build ID | Vercel connector returned no teams; local CLI network request failed with `EACCES`; no deployment attempted |
 
-The historical 61999 smoke recorded in the foundation report is superseded and is excluded from this ledger. Never fill a missing field with a local/mock result.
+The earlier Studionet (61999) smoke deployment recorded in `GATE_0_FOUNDATION_REPORT.md` is superseded historical tooling evidence only. It is not APTERRA deployment evidence, is excluded from the accepted network list, and must never be used to satisfy a Studio Dev gate.

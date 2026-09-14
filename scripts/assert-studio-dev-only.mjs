@@ -1,7 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 
-const roots = ['contracts', 'harness', 'test', 'scripts', '.github/workflows', 'src', 'frontend'];
+// Guard production/runtime inputs; tests may mention a wrong chain ID to prove
+// the wallet's fail-closed chain guard without configuring that network.
+const roots = ['contracts', 'harness', 'scripts', '.github/workflows', 'src', 'frontend'];
 const rootFiles = ['package.json', 'frontend-sdk-smoke.ts', '.env.example'];
 const extensions = new Set(['.py', '.mjs', '.js', '.ts', '.tsx', '.jsx', '.json', '.yml', '.yaml', '.toml', '.env']);
 const forbidden = [

@@ -23,22 +23,31 @@ def _constant_hash(name):
     return hashlib.sha256(_contract_constant(name).encode("utf-8")).hexdigest()
 
 
-def _new_claim(contract, claim_id="claim-1", version_id="refundbot-v1"):
+def _new_claim(contract, claim_id="claim-1", version_id="refundbot-v1", approver=None, consumer=None):
     if not contract.get_agent_version(version_id):
         contract.register_agent_version(
-            version_id, "refundbot", "model-x", "adapter-x",
+            version_id, "refundbot", "model-x", "provider-x", "adapter-x",
             hashlib.sha256(TEST_SYSTEM_POLICY.encode()).hexdigest(),
             hashlib.sha256(b"[]").hexdigest(), hashlib.sha256(b"python-stdlib").hexdigest(), "harness-v1",
         )
+    consumer_address = contract.owner.__class__(consumer) if consumer else contract.owner
     contract.create_claim(claim_id, version_id, _constant_hash("POLICY_CONTENT"),
-                          _constant_hash("RISK_POLICY_CONTENT"), contract.owner,
+                          _constant_hash("RISK_POLICY_CONTENT"), consumer_address,
+                          approver or contract.owner.__class__("0x" + "11" * 20),
                           "refund-order-001", 5000, 90)
 
 
 def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim_id="claim-1", mutate=None, sender=None):
     executor_address = contract.owner.__class__(executor)
+    challenge_commitment = hashlib.sha256(json.dumps({
+        "cases": CASE_INPUTS,
+        "policy_hash": _constant_hash("POLICY_CONTENT"),
+        "risk_policy_hash": _constant_hash("RISK_POLICY_CONTENT"),
+        "rubric_hash": _constant_hash("RUBRIC_CONTENT"),
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     contract.assign_challenge(claim_id, "challenge-1", _constant_hash("RUBRIC_CONTENT"), executor_address,
-                              json.dumps(CASE_INPUTS, separators=(",", ":")))
+                              challenge_commitment)
+    contract.reveal_challenge_inputs(claim_id, json.dumps(CASE_INPUTS, separators=(",", ":")))
     evidence = {
         "attempt_id": attempt_id,
         "claim_id": claim_id,
@@ -55,6 +64,12 @@ def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim
         "harness_version": "harness-v1",
         "harness_identity": executor_address.as_hex,
         "created_at": vm._datetime,
+        "finished_at": vm._datetime,
+        "run_id": "direct-test-run",
+        "environment_id": "Windows direct GenVM test",
+        "tool_trace_hash": hashlib.sha256(b"[]").hexdigest(),
+        "tool_trace": [],
+        "provider_id": "provider-x",
         "cases": [],
     }
     for case in CASE_INPUTS:
@@ -63,7 +78,8 @@ def _challenge_and_attempt(contract, vm, executor, attempt_id="attempt-1", claim
         input_hash = hashlib.sha256(json.dumps(case, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         evidence["cases"].append({"case_id": case_id, "input_hash": input_hash,
             "output_hash": hashlib.sha256(response.encode()).hexdigest(), "response_text": response,
-            "structured_action": "DENY", "structured_amount": 0, "short_reason": "safe test fixture"})
+            "structured_action": "DENY", "structured_amount": 0, "short_reason": "safe test fixture",
+            "started_at": vm._datetime, "finished_at": vm._datetime, "duration_ms": 0})
     if mutate:
         mutate(evidence)
     evidence["bundle_hash"] = hashlib.sha256(
@@ -111,7 +127,35 @@ def test_only_contract_owner_can_assign_challenge(direct_deploy, direct_vm, dire
     with direct_vm.expect_revert("OWNER_ONLY"):
         with direct_vm.prank(direct_alice):
             contract.assign_challenge("claim-1", "challenge-1", _constant_hash("RUBRIC_CONTENT"),
-                                      direct_alice, json.dumps(CASE_INPUTS, separators=(",", ":")))
+                                      direct_alice, "0" * 64)
+
+
+def test_challenge_commitment_precedes_reveal_and_mutation_is_rejected(direct_deploy, direct_vm, direct_alice):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    challenge_commitment = hashlib.sha256(json.dumps({
+        "cases": CASE_INPUTS,
+        "policy_hash": _constant_hash("POLICY_CONTENT"),
+        "risk_policy_hash": _constant_hash("RISK_POLICY_CONTENT"),
+        "rubric_hash": _constant_hash("RUBRIC_CONTENT"),
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    executor = contract.owner.__class__(direct_alice)
+    contract.assign_challenge("claim-1", "challenge-1", _constant_hash("RUBRIC_CONTENT"),
+                              executor, challenge_commitment)
+    assigned = json.loads(contract.get_challenge("claim-1"))
+    assert assigned["status"] == "ASSIGNED_NOT_REVEALED"
+    assert assigned["case_inputs"] == []
+    with direct_vm.expect_revert("CHALLENGE_NOT_REVEALED"):
+        with direct_vm.prank(direct_alice):
+            contract.submit_attempt("attempt-early", "claim-1", "hash", "{}")
+
+    altered_cases = json.loads(json.dumps(CASE_INPUTS))
+    altered_cases[0]["customer"] = "changed after commitment"
+    with direct_vm.expect_revert("CHALLENGE_COMMITMENT_MISMATCH"):
+        contract.reveal_challenge_inputs("claim-1", json.dumps(altered_cases))
+    assert json.loads(contract.get_claim("claim-1"))["state"] == "CHALLENGE_ASSIGNED"
+    contract.reveal_challenge_inputs("claim-1", json.dumps(CASE_INPUTS))
+    assert json.loads(contract.get_challenge("claim-1"))["status"] == "REVEALED"
 
 
 def test_claim_is_bound_to_version_operator_and_replay_is_rejected(direct_deploy, direct_vm, direct_alice):
@@ -120,13 +164,36 @@ def test_claim_is_bound_to_version_operator_and_replay_is_rejected(direct_deploy
     with direct_vm.expect_revert("VERSION_OPERATOR_ONLY"):
         with direct_vm.prank(direct_alice):
             contract.create_claim("foreign-claim", "refundbot-v1", _constant_hash("POLICY_CONTENT"),
-                                  _constant_hash("RISK_POLICY_CONTENT"), contract.owner,
+                                  _constant_hash("RISK_POLICY_CONTENT"), contract.owner, contract.owner,
                                   "refund-order-001", 5000, 90)
 
     _challenge_and_attempt(contract, direct_vm, direct_alice)
     with direct_vm.expect_revert("ATTEMPT_REPLAY"):
         with direct_vm.prank(direct_alice):
             contract.submit_attempt("attempt-1", "claim-1", "bundle-hash", "{}")
+
+
+def test_version_catalog_is_append_only_and_versions_cannot_be_overwritten(direct_deploy, direct_vm):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    commitment = hashlib.sha256(b"immutable v2").hexdigest()
+    contract.register_agent_version("refundbot-v2", "refundbot", "model-x", "provider-x", "adapter-x",
+                                    commitment, hashlib.sha256(b"[]").hexdigest(),
+                                    hashlib.sha256(b"python-stdlib").hexdigest(), "harness-v1")
+    assert json.loads(contract.get_agent_version_ids()) == ["refundbot-v1", "refundbot-v2"]
+    with direct_vm.expect_revert("VERSION_EXISTS"):
+        contract.register_agent_version("refundbot-v1", "changed", "model-x", "provider-x", "adapter-x",
+                                        commitment, hashlib.sha256(b"[]").hexdigest(),
+                                        hashlib.sha256(b"python-stdlib").hexdigest(), "harness-v1")
+
+
+def test_consumer_and_human_approver_must_be_distinct(direct_deploy, direct_vm):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    with direct_vm.expect_revert("APPROVER_MUST_BE_DISTINCT"):
+        contract.create_claim("same-role-claim", "refundbot-v1", _constant_hash("POLICY_CONTENT"),
+                              _constant_hash("RISK_POLICY_CONTENT"), contract.owner, contract.owner,
+                              "refund-order-002", 5000, 90)
 
 
 @pytest.mark.parametrize(
@@ -214,12 +281,38 @@ def test_inconclusive_suspends_and_deny_revokes_existing_scope_warrant(direct_de
     contract._replace_or_suspend_warrant("refundbot-v1", "INCONCLUSIVE", "retry-1", claim)
     assert json.loads(contract.get_warrant("prior"))["status"] == "SUSPENDED"
     assert contract.get_effective_authority("refundbot-v1") == ""
-
     contract._save(contract.warrants, "active-again", {"status": "ACTIVE", "scope": "refund_policy_v4_2"})
     contract.effective_warrant[key] = "active-again"
     contract._replace_or_suspend_warrant("refundbot-v1", "DENY", "retry-2", claim)
     assert json.loads(contract.get_warrant("active-again"))["status"] == "REVOKED"
     assert contract.get_effective_authority("refundbot-v1") == ""
+
+
+def test_warrant_history_is_append_only_across_negative_retests(direct_deploy):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    claim = json.loads(contract.get_claim("claim-1"))
+    contract._replace_or_suspend_warrant("refundbot-v1", "CERTIFY", "first-warrant", claim)
+    assert json.loads(contract.get_warrant_history("refundbot-v1")) == ["first-warrant"]
+    contract._replace_or_suspend_warrant("refundbot-v1", "INCONCLUSIVE", "attempt-uncertain", claim)
+    assert json.loads(contract.get_warrant_history("refundbot-v1")) == ["first-warrant"]
+    assert json.loads(contract.get_warrant("first-warrant"))["status"] == "SUSPENDED"
+
+
+def test_warrant_revoke_is_owner_only_and_never_revives(direct_deploy, direct_vm, direct_alice):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    claim = json.loads(contract.get_claim("claim-1"))
+    contract._replace_or_suspend_warrant("refundbot-v1", "CERTIFY", "warrant-revoke", claim)
+    with direct_vm.expect_revert("OWNER_ONLY"):
+        with direct_vm.prank(direct_alice):
+            contract.revoke_warrant("warrant-revoke", "owner revocation")
+    contract.revoke_warrant("warrant-revoke", "owner revocation")
+    assert json.loads(contract.get_warrant("warrant-revoke"))["status"] == "REVOKED"
+    assert contract.get_effective_authority("refundbot-v1") == ""
+    with direct_vm.expect_revert("WARRANT_NOT_ACTIVE"):
+        contract.revoke_warrant("warrant-revoke", "attempted revival")
+
 
 
 def test_limit_warrant_enforces_ceiling_nonce_and_expiry(direct_deploy, direct_vm):
@@ -272,6 +365,49 @@ def test_permission_receipt_is_bound_to_consumer_resource_and_operation(direct_d
     receipt = json.loads(contract.get_receipt("consume:nonce-z"))
     assert receipt["operation_id"] == "op-001"
     assert receipt["resource_id"] == "refund-order-001"
+
+
+def test_sandbox_adapter_executes_authorized_action_and_blocks_above_limit(direct_deploy, direct_vm):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract)
+    claim = json.loads(contract.get_claim("claim-1"))
+    contract._replace_or_suspend_warrant("refundbot-v1", "LIMIT", "attempt-limit", claim)
+
+    with direct_vm.expect_revert("HUMAN_APPROVAL_REQUIRED"):
+        contract.execute_sandbox_refund("refundbot-v1", "refund-order-001", "op-over", 600, "nonce-over")
+    assert contract.get_adapter_action("op-over") == ""
+
+    contract.execute_sandbox_refund("refundbot-v1", "refund-order-001", "op-allowed", 100, "nonce-ok")
+    action = json.loads(contract.get_adapter_action("op-allowed"))
+    assert action["status"] == "SANDBOX_ACTION_EXECUTED"
+    assert action["funds_transferred"] is False
+
+
+def test_limit_human_approval_is_exact_one_use_and_approver_bound(direct_deploy, direct_vm, direct_alice):
+    contract = direct_deploy("contracts/apterra.py")
+    _new_claim(contract, approver=contract.owner, consumer=direct_alice)
+    claim = json.loads(contract.get_claim("claim-1"))
+    contract._replace_or_suspend_warrant("refundbot-v1", "LIMIT", "attempt-limit", claim)
+    warrant = json.loads(contract.get_warrant("attempt-limit"))
+    expiry = warrant["expires_at"]
+
+    with direct_vm.expect_revert("APPROVER_ONLY"):
+        with direct_vm.prank(direct_alice):
+            contract.approve_limit_override("approval-1", "attempt-limit", "op-600", 600, "approval-nonce", expiry)
+    contract.approve_limit_override("approval-1", "attempt-limit", "op-600", 600, "approval-nonce", expiry)
+
+    with direct_vm.expect_revert("APPROVAL_BINDING_MISMATCH"):
+        with direct_vm.prank(direct_alice):
+            contract.execute_sandbox_refund("refundbot-v1", "refund-order-001", "op-other", 600, "nonce-other", "approval-1")
+    assert json.loads(contract.get_approval("approval-1"))["status"] == "APPROVED"
+    with direct_vm.prank(direct_alice):
+        contract.execute_sandbox_refund("refundbot-v1", "refund-order-001", "op-600", 600, "nonce-600", "approval-1")
+    assert json.loads(contract.get_approval("approval-1"))["status"] == "CONSUMED"
+    assert json.loads(contract.get_adapter_action("op-600"))["funds_transferred"] is False
+
+    with direct_vm.expect_revert("ACTION_REPLAY"):
+        with direct_vm.prank(direct_alice):
+            contract.execute_sandbox_refund("refundbot-v1", "refund-order-001", "op-600", 600, "nonce-replay", "approval-1")
 
 
 def _semantic_result(contract, vm, executor, findings, *, claim_id="claim-1", attempt_id="attempt-1"):

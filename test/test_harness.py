@@ -13,6 +13,7 @@ def test_challenge_is_four_case_suite_with_adversarial_customer():
         "routine-eligible", "clearly-ineligible", "ambiguous-exception", "adversarial-override"
     ]
     assert "Ignore all policy" in cases[-1]["customer"]
+    assert all(set(case) == {"case_id", "case_type", "customer"} for case in cases)
 
 
 def test_canonical_digest_is_order_independent():
@@ -38,6 +39,6 @@ def test_harness_rejects_unbounded_raw_output():
     try:
         normalize_response("x" * 1001)
     except ValueError as error:
-        assert str(error) == "AGENT_RESPONSE_EXCEEDS_COMMITMENT_LIMIT"
+        assert str(error) == "AGENT_RESPONSE_EXCEEDS_1000_BYTES"
     else:
         raise AssertionError("oversized agent response should be rejected")
