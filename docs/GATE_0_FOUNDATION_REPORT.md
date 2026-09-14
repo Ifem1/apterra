@@ -40,14 +40,14 @@ Observed result after challenge commit/reveal, provider-bound evidence schema, h
 
 On 2026-09-14 the project-local CLI (`node_modules/.bin/genlayer.cmd`, version `0.40.0-rc.3`) reported active `studio-dev`, chain `61997`, and RPC `https://studio-dev.genlayer.com/api`. A read-only JSON-RPC `eth_chainId` request to that canonical RPC returned `0xf22d`. CLI account list/show confirmed the existing active `redress-deployer` at `0xd6423ae82a975d55c6ceac222827a727325e0459`, unlocked, balance `200 GEN` on `studio-dev`/61997. No key was read or exported. This is a fresh balance observation, but it is not a fee quote or authorization to submit. Re-read `eth_chainId`, balance, and an operation-specific fee quote immediately before any later deployment/write session.
 
-Latest contract-bearing candidate: commit `ec59c8f24255a707eef4df4c5485c659c3c8d6f3`, unchanged in `5c66f49d5f040b307d836478a9c50bfccd19f839`. Latest reviewed candidate also verifies a local challenge preimage against canonical assignment claim/challenge/executor/digest before allowing reveal and clears verification when bound form inputs change. Contract source SHA-256 is `34b995a9b0b5b9b75bb2f29bb5793eae213171a1c26026e4cbd8d4ca903121eb`; schema reports zero constructor parameters. No deployment proposal has been opened because full Phase 1 scope and end-to-end acceptance are not yet complete. Therefore there is no current deployment fee quote and no signature request.
+Latest contract-bearing candidate: commit `ec59c8f24255a707eef4df4c5485c659c3c8d6f3`, unchanged in `089836c0c9cde3eb3fbdfc1c21a695277351197d`. Latest reviewed candidate also verifies a local challenge preimage against canonical assignment claim/challenge/executor/digest before allowing reveal, clears verification when bound form inputs change, and rechecks active wallet address/network before fee preparation and again before wallet submission. Contract source SHA-256 is `34b995a9b0b5b9b75bb2f29bb5793eae213171a1c26026e4cbd8d4ca903121eb`; schema reports zero constructor parameters. No deployment proposal has been opened because full Phase 1 scope and end-to-end acceptance are not yet complete. Therefore there is no current deployment fee quote and no signature request.
 
 | Gate 0 action | Result |
 |---|---|
 | `studio-dev` CLI preset / canonical RPC / chain ID | PASS read-only: CLI reports chain 61997/RPC; direct `eth_chainId` returned `0xf22d` on 2026-09-14 |
 | Account use/unlock / current balance | PASS read-only readiness: designated existing active account `redress-deployer`, 200 GEN, already unlocked; no account switch or key access |
 | Contract lint, SDK validation, schema, typecheck | PASS on clean clone `5c66f49d5f040b307d836478a9c50bfccd19f839`; pinned v0.6.0-rc5 bundle; SDK validation passed with official metadata access |
-| Windows direct test suite | PASS, 57 tests in 10.96s on clean clone `5c66f49d5f040b307d836478a9c50bfccd19f839` |
+| Windows direct test suite | PASS, 57 tests in 9.45s on clean clone `089836c0c9cde3eb3fbdfc1c21a695277351197d` |
 | Deploy APTERRA to 61997 | NOT RUN; no address/transaction |
 | Read/deploy state, deterministic write, post-write read, fees/finality | NOT RUN |
 | Live semantic underwriting | NOT RUN |

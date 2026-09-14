@@ -12,7 +12,7 @@ The only supported live environment is the Agent Tank GenLayer Studio Dev previe
 | GenVM runtime bundle | `v0.6.0-rc5`; contract runner hash `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng`; standard library `py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0` | Official pinned manager bundle staged under ignored `.tooling` and consumed by direct tests/linter |
 | Studio / consensus | `0.123.0-rc.6` / Consensus v0.6 RC | Recorded as the preview family from official v0.6 guidance; Studio Dev preview state may reset |
 | Node / npm / Python | Node `24.16.0`, npm `11.13.0`, Python `3.12.10` | Observed locally; unchanged |
-| Frontend lint/browser tests | ESLint `9.21.0`, Next plugin `15.5.22`, TypeScript ESLint parser/plugin `8.70.0`, Playwright `1.62.0` | Exact Node dependency lock; current UI unit suite 8/8 and browser smoke 3/3; full wallet flow remains untested |
+| Frontend lint/browser tests | ESLint `9.21.0`, Next plugin `15.5.22`, TypeScript ESLint parser/plugin `8.70.0`, Playwright `1.62.0` | Exact Node dependency lock; current UI unit suite 10/10 and browser smoke 3/3; full wallet flow remains untested |
 
 ## Studio Dev identity
 
