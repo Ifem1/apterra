@@ -8,6 +8,6 @@ The canonical evidence ledger is [the requirements matrix](REQUIREMENTS_MATRIX.m
 | Agent version + claim + split challenge commit/reveal | NOT RUN live | None | No canonical readback |
 | Evidence submission + semantic underwriting (CERTIFY/LIMIT/DENY/INCONCLUSIVE) | NOT RUN live | None | Direct-mode semantic mocks are not live consensus proof |
 | LIMIT human approval and adapter allowed/blocked actions | NOT RUN live | None | Local direct regressions are not live consumer/approver transactions |
-| Public frontend production deployment | BLOCKED by absent Vercel account/project auth | No public URL/build ID | Vercel connector returned no teams; local CLI network request failed with `EACCES`; no deployment attempted |
+| Public frontend production deployment | NOT RUN | No public URL/build ID | Vercel CLI is authenticated as `ifem1`, but the inspected account has no APTERRA project and the repository has no `.vercel` link. Deployment waits until a verified Studio Dev contract is approved and configured; no public deploy was attempted. |
 
 The earlier Studionet (61999) smoke deployment recorded in `GATE_0_FOUNDATION_REPORT.md` is superseded historical tooling evidence only. It is not APTERRA deployment evidence, is excluded from the accepted network list, and must never be used to satisfy a Studio Dev gate.

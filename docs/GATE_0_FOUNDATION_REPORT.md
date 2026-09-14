@@ -23,16 +23,16 @@ The published `genlayer@0.40.0-rc.3` npm tarball was packed and inspected once. 
 
 ## Windows direct-suite path
 
-The pinned `genlayer-test==0.30.0rc2` direct runner works on Windows with the narrow test-only stdin tempfile/timestamp shim in `test/conftest.py`, the official RC5 runner staged under ignored `.tooling`, and workspace-local test cache:
+The pinned `genlayer-test==0.30.0rc2` direct runner works on Windows with the narrow test-only stdin tempfile/timestamp shim in `test/conftest.py`, the official RC5 runner staged under ignored `.tooling`, and a short temp-profile test cache:
 
 ```powershell
 $env:GENVM_PREBUILT_DIR = Join-Path (Get-Location) '.tooling\genvm-v0.6.0-rc5'
-$env:USERPROFILE = Join-Path (Get-Location) '.tooling\gltest-user'
+$env:USERPROFILE = Join-Path $env:TEMP 'apta'
 $env:PYTHONIOENCODING = 'utf-8'
 python -m pytest -q --tb=short
 ```
 
-Observed result after challenge commit/reveal, provider-bound evidence schema, human approval, sandbox adapter, version catalog, warrant-history/revocation, and strict evidence/challenge-schema regressions: **57 passed in 9.32s** on clean clone `ec59c8f24255a707eef4df4c5485c659c3c8d6f3` using `python -m pytest -q --tb=short`. It is direct-mode execution with semantic response mocks, not live consensus proof.
+At source commit `128440f1332334d149c4bc4a215f2f12a0588e2a`, the exact command `python -m pytest -q --tb=short` returned **57 passed in 11.64s** on Windows with the variables above. An earlier attempt without an isolated temp `USERPROFILE` failed during runner-cache extraction because the default protected user cache was inaccessible; the short temp-profile path is the successful one. This is direct-mode execution with semantic response fixtures, not live consensus proof. GitHub Actions run `34850126835` also passed the pinned direct suite (57 tests in 25.58s) on a clean hosted checkout after fixing two earlier workflow issues: an incorrect extracted-cache path, then a Linux test-collection import scope.
 
 `genvm-lint check contracts/apterra.py --json` passed (3 lint checks and SDK validation; 25 methods: 11 writes and 14 views); schema extraction and SDK typecheck passed. The linter emitted a Windows `WinError 10013` warning while attempting to query GitHub for newest runner metadata, then correctly used the explicitly pinned local v0.6.0-rc5 bundle. Typecheck requires `$env:PYTHONIOENCODING='utf-8'` in this Windows console.
 
@@ -40,14 +40,14 @@ Observed result after challenge commit/reveal, provider-bound evidence schema, h
 
 On 2026-09-14 the project-local CLI (`node_modules/.bin/genlayer.cmd`, version `0.40.0-rc.3`) reported active `studio-dev`, chain `61997`, and RPC `https://studio-dev.genlayer.com/api`; a read-only JSON-RPC `eth_chainId` request to that endpoint returned `0xf22d`. In this continuation, CLI `network info` repeated the expected endpoint/chain and CLI account list showed the existing `redress-deployer` active and unlocked. The 200 GEN balance was read at an earlier checkpoint on that date and was not refreshed here; no key was read or exported. Re-read `eth_chainId`, current balance, and operation-specific fee quote immediately before any later deployment/write session.
 
-Latest pushed code candidate at this evidence refresh: `cc6a35e339d0db1e8b2c75149747b51c84f7b217`. It includes canonical local challenge-preimage binding, active wallet rechecks, per-session bounded challenge generation, patched frontend dependencies, and LF source checkout policy. Exact raw source hashes are recorded in `docs/TOOLCHAIN.md`; contract SHA-256 remains `34b995a9b0b5b9b75bb2f29bb5793eae213171a1c26026e4cbd8d4ca903121eb`. The clean-clone check at `8e753553b51b1e7de755390ecf61534ba49341b8` passed direct tests 57/57, GenVM lint plus SDK validation (3 checks, 25 methods), GenVM typecheck, 25-method schema extraction, frontend lint/typecheck, 11 frontend tests, production build, and 3 browser smoke scenarios; `cc6a35e` adds only `.gitattributes`, and a fresh clone confirms matching source hashes. The candidate has no deployment proposal because full Phase 1 scope and end-to-end acceptance are not ready. Therefore there is no current deployment fee quote and no signature request.
+Current pushed code candidate: `128440f1332334d149c4bc4a215f2f12a0588e2a`. It includes the on-chain agent-version catalog detail UI and portable direct-test clock synchronization. Frontend lint/typecheck, **13 frontend unit tests**, production build, and Windows direct suite (**57 passed in 11.64s**) passed locally. Three browser smoke cases reported passed locally, but the Windows Playwright process did not shut down cleanly. GitHub Actions run [34850126835](https://github.com/Ifem1/apterra/actions/runs/34850126835) passed the clean GitHub checkout: 13 frontend tests; 3 Chromium smoke tests; production build; GenVM check (3 lint checks plus SDK validation, 25 methods); SDK typecheck; schema extraction (25 methods: 14 views, 11 writes); and 57 direct tests in 25.58s. Exact source hashes are in [TOOLCHAIN](TOOLCHAIN.md). Contract SHA-256 remains `34b995a9b0b5b9b75bb2f29bb5793eae213171a1c26026e4cbd8d4ca903121eb`. The earlier manual clean-clone check at `8e753553b51b1e7de755390ecf61534ba49341b8` is historical and is not a manual clean-clone verification of this candidate. The candidate has no deployment proposal because full Phase 1 scope and end-to-end acceptance are not ready. There is no current deployment fee quote and no signature request.
 
 | Gate 0 action | Result |
 |---|---|
 | `studio-dev` CLI preset / canonical RPC / chain ID | PASS read-only: project-local RC CLI reports chain 61997/RPC; independent direct `eth_chainId` returned `0xf22d` on 2026-09-14 |
 | Account use/unlock / balance | PARTIAL: designated `redress-deployer` remains active/unlocked by CLI account list; historical 200 GEN observation was not refreshed in this continuation, and no fee quote was obtained |
-| Contract lint, SDK validation, schema, typecheck | PASS on clean clone `8e753553b51b1e7de755390ecf61534ba49341b8`; pinned v0.6.0-rc5 bundle; SDK validation passed with local cache after metadata lookup warning |
-| Windows direct test suite | PASS, 57 tests in 9.79s on clean clone `8e753553b51b1e7de755390ecf61534ba49341b8` |
+| Contract lint, SDK validation, schema, typecheck | PASS at `128440f` in GitHub run `34850126835`; pinned v0.6.0-rc5 bundle; 3 lint checks + SDK validation, 25-method schema and no SDK type errors |
+| Windows direct test suite | PASS locally at `128440f`: 57 passed in 11.64s using the pinned RC2 runner, GenVM RC5 and short temp profile; CI clean-checkout run passed 57 in 25.58s |
 | Deploy APTERRA to 61997 | NOT RUN; no address/transaction |
 | Read/deploy state, deterministic write, post-write read, fees/finality | NOT RUN |
 | Live semantic underwriting | NOT RUN |
