@@ -6,9 +6,9 @@ import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycl
 import { matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
 import {
   APTERRA_NETWORK,
-  assertStudioDev,
   configuredContractAddress,
   createWalletClient,
+  assertWalletIdentity,
   normalizeWalletAccounts,
   readClient,
   type WalletProvider,
@@ -246,7 +246,7 @@ export default function Home() {
       if (!address) throw new Error("Wallet returned no valid account.");
       const client = createWalletClient(address, provider);
       await client.connect("studioDevnet");
-      await assertStudioDev(provider);
+      await assertWalletIdentity(provider, address);
       const chainId = await provider.request({ method: "eth_chainId" });
       setAccount(address);
       setWalletChainId(typeof chainId === "string" ? chainId.toLowerCase() : null);
@@ -271,7 +271,7 @@ export default function Home() {
       }] });
       const chainId = await provider.request({ method: "eth_chainId" });
       setWalletChainId(typeof chainId === "string" ? chainId.toLowerCase() : null);
-      if (chainId !== APTERRA_NETWORK.chainIdHex) {
+      if (typeof chainId !== "string" || chainId.toLowerCase() !== APTERRA_NETWORK.chainIdHex) {
         setNotice("Studio Dev was added, but the wallet did not select it. Choose it manually, then reconnect; signing remains disabled until the chain is rechecked.");
         setNoticeTone("warn");
         return;
@@ -353,7 +353,7 @@ export default function Home() {
     setBusy(true);
     setPrepared(null);
     try {
-      await assertStudioDev(provider);
+      await assertWalletIdentity(provider, account);
       const quote = await prepareContractWrite(walletClient, contractAddress, action);
       reviewReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setPrepared(quote);
@@ -369,7 +369,7 @@ export default function Home() {
     if (!prepared || !walletClient || !account || !contractAddress || !provider) return;
     setBusy(true);
     try {
-      await assertStudioDev(provider);
+      await assertWalletIdentity(provider, account);
       const hash = await submitPreparedWrite(walletClient, contractAddress, prepared);
       const target = readbackTarget(prepared.action.functionName, prepared.action.args);
       const entry: PendingTransaction = { hash: String(hash), method: prepared.action.functionName, status: "SUBMITTED", ...(

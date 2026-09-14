@@ -56,3 +56,12 @@ export async function assertStudioDev(provider: WalletProvider): Promise<void> {
     throw new Error(`Wrong wallet network. Switch to Studio Dev (chain ${APTERRA_NETWORK.chainId}).`);
   }
 }
+
+export async function assertWalletIdentity(provider: WalletProvider, expected: `0x${string}`): Promise<void> {
+  await assertStudioDev(provider);
+  const accounts = await provider.request({ method: "eth_accounts" });
+  const active = normalizeWalletAccounts(accounts);
+  if (!active || active.toLowerCase() !== expected.toLowerCase()) {
+    throw new Error("The wallet account changed or disconnected. Reconnect and review the transaction again before signing.");
+  }
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertStudioDev, normalizeWalletAccounts } from "../src/lib/network.ts";
+import { assertStudioDev, assertWalletIdentity, normalizeWalletAccounts } from "../src/lib/network.ts";
 
 const ACCOUNT_A = "0x1111111111111111111111111111111111111111";
 const ACCOUNT_B = "0x2222222222222222222222222222222222222222";
@@ -22,4 +22,18 @@ test("only the Studio Dev chain is accepted; other chain IDs are rejected", asyn
     assertStudioDev({ request: async () => { throw new Error("user rejected"); } }),
     /user rejected/,
   );
+});
+
+test("quote and signing identity checks require the same active account and Studio Dev", async () => {
+  const provider = {
+    request: async ({ method }) => method === "eth_chainId" ? "0xf22d" : [ACCOUNT_A],
+  };
+  await assertWalletIdentity(provider, ACCOUNT_A);
+  await assert.rejects(assertWalletIdentity(provider, ACCOUNT_B), /account changed or disconnected/);
+  await assert.rejects(assertWalletIdentity({
+    request: async ({ method }) => method === "eth_chainId" ? "0x1" : [ACCOUNT_A],
+  }, ACCOUNT_A), /Wrong wallet network/);
+  await assert.rejects(assertWalletIdentity({
+    request: async ({ method }) => method === "eth_chainId" ? "0xf22d" : [],
+  }, ACCOUNT_A), /account changed or disconnected/);
 });
