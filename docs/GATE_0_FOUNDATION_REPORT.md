@@ -2,7 +2,7 @@
 
 **Status: PARTIAL — Studio Dev/account and pinned RC tooling verified; contract lint, SDK validation, typecheck, schema extraction, and the complete Windows direct-mode suite pass. Live deployment smoke remains unrun pending owner approval of the exact transaction.**
 
-Observed 2026-09-13. Studio Dev preview addresses and transactions must always be treated as ephemeral.
+Observed 2026-09-14. Studio Dev preview addresses and transactions must always be treated as ephemeral.
 
 ## Target and installed toolchain
 
@@ -19,6 +19,8 @@ Observed 2026-09-13. Studio Dev preview addresses and transactions must always b
 | Test tooling | `genlayer-test==0.30.0rc2` | Installed; exact RC5 runner bundle staged under ignored `.tooling` for direct setup |
 | Linter | `genvm-linter==0.11.1rc2` | Installed; `check`, SDK typecheck, and schema commands now run |
 | Node / npm / Python | `v24.16.0` / `11.13.0` / `3.12.10` | Observed |
+
+Implementation checkpoint `5e6040edd6aaa559c14349468055830e22c65c1c` is pushed to `origin/main` (`https://github.com/Ifem1/apterra.git`).
 
 The manifest and lockfile pin `genlayer` exactly to `0.40.0-rc.3`, not a semver range. Use the project-local binary, not the broken global CLI.
 
@@ -50,9 +52,19 @@ The Studio Dev checks completed so far are limited to:
 | RC runner header artifact setup | PASS for pinned hash — resolved from the official v0.6.0-rc5 release bundle |
 | Lint / schema / validate / SDK typecheck | PASS — `check`, `schema`, and `typecheck` all completed successfully |
 | Deploy / read / deterministic write / post-write read | NOT RUN — exact deployment/write proposal awaits owner approval |
-| Fee estimation / submission / decision / finalization | NOT RUN — no transaction was submitted |
+| Read-only fee estimate | PASS — current Studio Dev policy quote obtained for explicit 100/200 time-unit allocations; not contract-code simulation |
+| Submission / decision / finalization | NOT RUN — no transaction was submitted |
 
-No APTERRA Studio Dev contract address or transaction is claimed. Deployment, reads, deterministic write, fee estimation/submission and finality smoke are not yet run. Before any future deployment/write, the exact source hash, constructor, account, network identity, live fee quote, and expected state change must be presented for owner approval. The account balance check alone is not deployment approval.
+No APTERRA Studio Dev contract address or transaction is claimed. Deployment, reads, deterministic write, and submission/decision/finality smoke are not yet run. The following proposal is evidence for owner review, not an authorization or submitted transaction:
+
+- Source: commit `5e6040edd6aaa559c14349468055830e22c65c1c`; `contracts/apterra.py`, contract `ApterraUnderwriter`.
+- Constructor: zero arguments; expected new state is a deployed contract owned by the deployer with empty application maps (no seeded production state).
+- Deployer: existing public address `0xD6423aE82a975d55C6CeaC222827A727325e0459`; latest read-only balance: 200 GEN.
+- Network: Studio Dev, chain `61997`, RPC `https://studio-dev.genlayer.com/api`.
+- Current fee-policy estimate via `genlayer-js@2.0.0-rc.1` / `studioDevnet`: `feeValue=100000000000010352` wei (`0.100000000000010352 GEN`) for `leaderTimeunitsAllocation=100`, `validatorTimeunitsAllocation=200`; returned distribution has rotations `["3"]`. Policy fields: enabled, `genPerTimeUnit=1`, storage/receipt unit price `250000000`, execution floor `76548000000000`, overlay `1500` bps. This is an exact live policy-based estimate for those selected allocations, **not a contract-code simulation or signed deployment quote**.
+- No private key was copied, printed or changed. The local CLI was pointed at an isolated ignored profile for network inspection; it does not contain the existing account. No write was signed or submitted.
+
+The deployment and any subsequent smoke write remain gated on explicit owner wallet approval of the exact transaction; the deployer balance alone is not approval.
 
 ## Superseded stable-environment smoke (historical only)
 
