@@ -32,7 +32,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 python -m pytest -q --tb=short
 ```
 
-Observed result after challenge commit/reveal, provider-bound evidence schema, human approval, sandbox adapter, version catalog and warrant-history/revocation regressions: **50 passed in 7.86s** on the final clean-clone commit `811f23104404ca67907a9dc5556e1baaae0418ae` using `python -m pytest -q --tb=short`. It is direct-mode execution with semantic response mocks, not live consensus proof.
+Observed result after challenge commit/reveal, provider-bound evidence schema, human approval, sandbox adapter, version catalog and warrant-history/revocation regressions: **50 passed in 9.81s** on clean clone `440bb35334a762f5332272ace11f5a11c2774992` using `python -m pytest -q --tb=short`. It is direct-mode execution with semantic response mocks, not live consensus proof.
 
 `genvm-lint check contracts/apterra.py --json` passed (3 lint checks and SDK validation; 25 methods: 11 writes and 14 views); schema extraction and SDK typecheck passed. The linter emitted a Windows `WinError 10013` warning while attempting to query GitHub for newest runner metadata, then correctly used the explicitly pinned local v0.6.0-rc5 bundle. Typecheck requires `$env:PYTHONIOENCODING='utf-8'` in this Windows console.
 
@@ -46,8 +46,8 @@ Latest implementation candidate: commit `a6216f8174091be775bfda9068fd4ee3ef2bbf6
 |---|---|
 | `studio-dev` CLI preset / canonical RPC / chain ID | PASS read-only: CLI reports chain 61997/RPC; direct `eth_chainId` returned `0xf22d` on 2026-09-14 |
 | Account use/unlock / current balance | PASS read-only readiness: designated existing active account `redress-deployer`, 200 GEN, already unlocked; no account switch or key access |
-| Contract lint, SDK validation, schema, typecheck | PASS on final clean clone `811f23104404ca67907a9dc5556e1baaae0418ae`; pinned v0.6.0-rc5 bundle; SDK validation passed when the linter could reach official metadata |
-| Windows direct test suite | PASS, 50 tests in 7.86s on final clean clone `811f23104404ca67907a9dc5556e1baaae0418ae` |
+| Contract lint, SDK validation, schema, typecheck | PASS on clean clone `440bb35334a762f5332272ace11f5a11c2774992`; pinned v0.6.0-rc5 bundle; SDK validation passed when the linter could reach official metadata |
+| Windows direct test suite | PASS, 50 tests in 9.81s on clean clone `440bb35334a762f5332272ace11f5a11c2774992` |
 | Deploy APTERRA to 61997 | NOT RUN; no address/transaction |
 | Read/deploy state, deterministic write, post-write read, fees/finality | NOT RUN |
 | Live semantic underwriting | NOT RUN |
