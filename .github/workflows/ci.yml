@@ -12,12 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.16.0
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12.10
           cache: pip
@@ -39,7 +39,10 @@ jobs:
       - name: Fetch the pinned GenVM bundle
         run: |
           genvm-lint download --version v0.6.0-rc5
-          echo "GENVM_PREBUILT_DIR=$HOME/.cache/genvm-linter/extracted/genlayerlabs-genvm-manager-v0.6.0-rc5" >> "$GITHUB_ENV"
+          # genlayer-test consumes the pinned release tarball and extracts its
+          # runner tree itself; genvm-linter's extracted cache is not a prebuilt
+          # GenVM root and must not be passed as GENVM_PREBUILT_DIR.
+          echo "GENVM_VERSION=v0.6.0-rc5" >> "$GITHUB_ENV"
           echo "PYTHONIOENCODING=utf-8" >> "$GITHUB_ENV"
       - name: GenVM lint and SDK validation
         run: genvm-lint check contracts/apterra.py --json
