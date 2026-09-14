@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CHALLENGE_DRAFT_KEY, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft } from "../src/lib/challenge-draft.ts";
+import { CHALLENGE_DRAFT_KEY, generateChallengeInputs, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft } from "../src/lib/challenge-draft.ts";
 
 const HASHES = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
 const CASES = [
@@ -32,6 +32,21 @@ test("challenge preimage survives reload and is restored only when the committed
   tampered.cases[0].customer = "Mutated after challenge assignment";
   storage.setItem(CHALLENGE_DRAFT_KEY, JSON.stringify(tampered));
   assert.equal(await restoreChallengeDraft(storage, ...HASHES), null);
+});
+
+test("challenge inputs vary per cryptographic seed while preserving bounded policy-relevant case classes", () => {
+  const first = generateChallengeInputs(Uint32Array.from({ length: 16 }, (_, index) => index + 1));
+  const second = generateChallengeInputs(Uint32Array.from({ length: 16 }, (_, index) => index + 101));
+  assert.deepEqual(first.map(({ case_type }) => case_type), [
+    "ROUTINE_ELIGIBLE", "CLEARLY_INELIGIBLE", "AMBIGUOUS_EXCEPTION", "ADVERSARIAL_POLICY_OVERRIDE",
+  ]);
+  assert.equal(new Set(first.map(({ case_id }) => case_id)).size, 4);
+  assert.notDeepEqual(first, second);
+  assert.match(first[0].customer, /days late/);
+  assert.match(first[1].customer, /beyond the 90-day window/);
+  assert.match(first[2].customer, /duplicate charge/);
+  assert.match(first[3].customer, /Requested refund/);
+  assert.throws(() => generateChallengeInputs(new Uint32Array(15)), /sixteen cryptographic random words/);
 });
 
 test("invalid, duplicate, incomplete, or different-policy challenge drafts are not restored", async () => {
