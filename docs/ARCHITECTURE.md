@@ -6,7 +6,9 @@ APTERRA underwrites one capability only: `REFUND` under `refund_policy_v4_2`. Th
 
 The canonical lifecycle is:
 
-`ACTIVE version → CLAIMED → CHALLENGE_COMMITTED → ATTEMPT_SUBMITTED → UNDER_JUDGMENT → CERTIFY | LIMIT | DENY | INCONCLUSIVE → warrant / withheld → authority consumption`
+`ACTIVE version → CLAIMED → CHALLENGE_COMMITTED → ATTEMPT_SUBMITTED → pending GenLayer judgment transaction → CERTIFY | LIMIT | DENY | INCONCLUSIVE → warrant / withheld → permission receipt`
+
+`UNDER_JUDGMENT` is a transaction/explorer lifecycle status, not a durable contract claim state. Contract writes commit atomically after execution/consensus, so while judgment is pending the persistent claim and attempt remain `ATTEMPT_SUBMITTED`. Successful finalization stores the judgment and terminal claim state. Reverted/undetermined transactions leave the submitted attempt retryable with no judgment/warrant side effects. Retrying is a new authorized transaction after checking the prior transaction's terminal status. This behavior still needs pinned direct-GenVM and live Studio Dev verification.
 
 ## State machine and write guards
 
@@ -28,11 +30,11 @@ The canonical lifecycle is:
 
 ### Challenge assignment
 
-`challenge_id`, class (`refund_policy_v4_2`), four fixed case IDs, policy hash, rubric hash, risk-policy hash, and assigned executor. The contract accepts no post-assignment replacement.
+`challenge_id`, class (`refund_policy_v4_2`), exact bounded case JSON and per-case canonical input hashes, a set hash that commits policy/risk/rubric versions, assigned executor, and timestamps. Submitted case input hashes must match this assignment. Evidence identity must match both the assignment and submitting transaction. This identity consistency check is not cryptographic attestation of a process or agent.
 
 ### Evidence manifest
 
-`schema_version`, attempt/claim/version/challenge IDs, all commitment hashes, harness version/identity, provider/model ID, per-case input and output hashes, structured action and amount, short reason, and a canonical SHA-256 bundle hash. Full synthetic evidence is retained off-chain in the local harness output; its hash and bounded manifest are submitted on-chain. The harness is an explicit MVP trust boundary: it proves reproducible execution by the named executor, not TEE attestation.
+`schema_version`, attempt/claim/version/challenge IDs, all commitment hashes, harness version/identity, provider/model ID, per-case input and output hashes, structured action and amount, short reason, and a canonical SHA-256 bundle hash. The contract validates the bounded raw response hash and requires its parsed action/amount to match the structured fields. Full evidence is retained on-chain in the current MVP. Hashes prove commitment to bytes, not that a production agent ran them. The executor/provider are trusted; sender/claimed identity consistency is not proof of execution. No TEE attestation is claimed or specified as a Phase 1 requirement.
 
 ### Semantic judgment
 
@@ -44,7 +46,7 @@ The contract accepts only the following bounded fields: evidence state, routine 
 | --- | --- |
 | IDs/hashes, access control, state guards, commitment binding, enum/schema validation, risk-policy mapping, max amounts, expiry, nonce replay checks, warrant status, and allow/block result | Whether the committed evidence demonstrates routine/exception handling, whether untrusted content displaced policy, evidence sufficiency/integrity, bounded weakness/failure classification |
 
-`underwrite_attempt` first runs deterministic manifest checks. Only then does its leader request a JSON findings object using locked policy, rubric, and evidence. The validator independently evaluates the same locked inputs and rejects the leader unless the bounded fields are substantively supported—not merely well formed. Untrusted case/customer content is quoted as evidence and explicitly cannot amend instructions, schema, policy, or allowed sources. A malformed, contradictory, unsupported, or non-convergent result fails closed to `INCONCLUSIVE`.
+`underwrite_attempt` first runs deterministic manifest checks. Only then does its leader request a JSON findings object using locked policy, rubric, and evidence; v0.6 `prompt_comparative` reruns the locked prompt and semantically compares findings. Deterministic contract checks reject malformed fields. Untrusted case/customer content is evidence and cannot amend instructions, schema, policy, or allowed sources. Direct-mode tests show malformed results/model errors leave no judgment and a retry can succeed; direct mode does not emulate validator-disagreement consensus rollback. A semantic `INCONCLUSIVE` finding suspends an active same-version/scope warrant and `DENY` revokes it. Atomic rollback after disagreement and consensus recovery still require live Studio Dev verification.
 
 ## Network and client model
 
@@ -56,4 +58,4 @@ The frontend reads contract state and renders it. It never derives a verdict, ce
 
 ## Phase boundary
 
-There is no external-chain receiver, bridge, settlement system, database authority, token, or custodial flow. `consume_authority` is a GenLayer-native authority-enforcement simulation; it records a receipt but does not transfer customer money.
+There is no external-chain receiver, bridge, settlement system, database authority, token, or custodial flow. `consume_authority` is a GenLayer-native permission check bound to the claim's consumer, resource, operation ID, amount, and single-use nonce; a receipt is not a refund, transfer, or proof of external execution. A full external downstream adapter/settlement flow is not implemented and is not represented as working.

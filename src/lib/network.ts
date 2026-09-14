@@ -18,6 +18,12 @@ export type WalletProvider = {
   removeListener?(event: string, listener: (...args: unknown[]) => void): void;
 };
 
+export function normalizeWalletAccounts(value: unknown): `0x${string}` | null {
+  return Array.isArray(value) && typeof value[0] === "string" && /^0x[a-fA-F0-9]{40}$/.test(value[0])
+    ? value[0] as `0x${string}`
+    : null;
+}
+
 declare global {
   interface Window {
     ethereum?: WalletProvider;

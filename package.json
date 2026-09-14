@@ -6,6 +6,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:frontend": "node --test test/frontend-*.test.mjs",
     "lint": "eslint scripts/assert-studio-dev-only.mjs && npm run typecheck"
   },
   "dependencies": {
