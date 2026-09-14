@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { summarizeTransactionLifecycle } from "../src/lib/transaction-lifecycle.ts";
+import { assertFreshFeeQuote, summarizeTransactionLifecycle } from "../src/lib/transaction-lifecycle.ts";
 
 test("transaction success requires accepted decision, finalized status, and successful execution", () => {
   const success = summarizeTransactionLifecycle({
@@ -17,4 +17,11 @@ test("transaction success requires accepted decision, finalized status, and succ
     { statusName: "FINALIZED", txExecutionResultName: "FINISHED_WITH_RETURN", lifecycle: { state: "finalized", outcome: "undetermined" } },
     { statusName: "FINALIZED", txExecutionResultName: "FINISHED_WITH_RETURN", lifecycle: { state: "finalized" } },
   ]) assert.equal(summarizeTransactionLifecycle(failed).successful, false);
+});
+
+test("wallet signing rejects stale, future-dated, and malformed fee quotes", () => {
+  assert.doesNotThrow(() => assertFreshFeeQuote(40_000, 100_000));
+  assert.throws(() => assertFreshFeeQuote(39_999, 100_000), /older than 60 seconds/);
+  assert.throws(() => assertFreshFeeQuote(100_001, 100_000), /invalid/);
+  assert.throws(() => assertFreshFeeQuote(Number.NaN, 100_000), /invalid/);
 });

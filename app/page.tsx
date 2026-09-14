@@ -594,6 +594,9 @@ export default function Home() {
           <div><dt>Contract / method</dt><dd>{contractAddress} · {prepared.action.functionName}</dd></div>
           <div><dt>Arguments</dt><dd><code>{prepared.action.args.map(String).join(" · ")}</code></dd></div>
           <div><dt>Estimated maximum fee</dt><dd>{formatGen(prepared.quote.feeValue)} ({prepared.quote.feeValue.toString()} wei), fresh Studio Dev fee quote</dd></div>
+          <div><dt>Distribution</dt><dd><code>{stringify(prepared.quote.distribution)}</code></dd></div>
+          <div><dt>Message allocations</dt><dd><code>{stringify(prepared.quote.messageAllocations)}</code></dd></div>
+          <div><dt>Quote time</dt><dd>{new Date(prepared.quotedAt).toISOString()} · expires after 60 seconds</dd></div>
           <div><dt>Policy fingerprint</dt><dd><code>{prepared.policyFingerprint}</code></dd></div>
           <div><dt>Value</dt><dd>0 GEN</dd></div>
           <div className="wide"><dt>Expected state consequence</dt><dd>{prepared.action.expectedState}</dd></div>

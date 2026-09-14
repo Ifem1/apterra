@@ -1,6 +1,7 @@
 import type { createClient } from "genlayer-js";
 import { configuredFeePolicyHash } from "@/lib/network";
-export { summarizeTransactionLifecycle } from "@/lib/transaction-lifecycle";
+import { assertFreshFeeQuote } from "@/lib/transaction-lifecycle";
+export { assertFreshFeeQuote, summarizeTransactionLifecycle } from "@/lib/transaction-lifecycle";
 
 type Client = ReturnType<typeof createClient>;
 export type ContractAction = {
@@ -41,7 +42,7 @@ export async function prepareContractWrite(client: Client, address: `0x${string}
   if (policyFingerprint !== expectedFingerprint) {
     throw new Error("Live fee policy does not match the reviewed profile. Signing is blocked; refresh the quote and review the profile.");
   }
-  return { quote, policyFingerprint, action };
+  return { quote, policyFingerprint, action, quotedAt: Date.now() };
 }
 
 export async function submitPreparedWrite(
@@ -49,6 +50,7 @@ export async function submitPreparedWrite(
   address: `0x${string}`,
   prepared: Awaited<ReturnType<typeof prepareContractWrite>>,
 ) {
+  assertFreshFeeQuote(prepared.quotedAt);
   return client.writeContract({
     address,
     functionName: prepared.action.functionName,
