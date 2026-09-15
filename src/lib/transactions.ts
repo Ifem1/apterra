@@ -9,6 +9,7 @@ export function prepareContractWrite(
   client: Parameters<typeof prepareContractWriteWithFeePolicy>[0],
   address: `0x${string}`,
   action: ContractAction,
+  provider?: Parameters<typeof prepareContractWriteWithFeePolicy>[4],
 ) {
-  return prepareContractWriteWithFeePolicy(client, address, action, configuredFeePolicyHash());
+  return prepareContractWriteWithFeePolicy(client, address, action, configuredFeePolicyHash(), provider);
 }

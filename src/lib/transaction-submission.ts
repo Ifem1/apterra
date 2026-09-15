@@ -1,4 +1,6 @@
 import type { createClient } from "genlayer-js";
+import { createTransactionKit } from "@genlayer/transaction-kit";
+import { studioDevnet } from "genlayer-js/chains";
 import { assertFreshFeeQuote } from "./transaction-lifecycle.ts";
 
 type Client = ReturnType<typeof createClient>;
@@ -30,7 +32,13 @@ export async function prepareContractWriteWithFeePolicy(
   address: `0x${string}`,
   action: ContractAction,
   expectedFingerprint: string | null,
+  provider?: { request(args: { method: string; params?: unknown[] }): Promise<unknown> },
 ) {
+  if (provider) {
+    const kit = createTransactionKit({ chain: studioDevnet, provider });
+    const kitQuote = await kit.estimate({ preset: "standard" }, { kind: "write", address, method: action.functionName, args: action.args });
+    if (kitQuote.verification.status !== "verified") throw new Error("Transaction Kit fee-policy verification failed; signing is blocked.");
+  }
   const quote = await client.estimateTransactionFeesForWrite({
     address,
     functionName: action.functionName,

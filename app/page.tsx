@@ -391,7 +391,7 @@ export default function Home() {
     setPrepared(null);
     try {
       await assertWalletIdentity(provider, account);
-      const quote = await prepareContractWrite(walletClient, contractAddress, action);
+      const quote = await prepareContractWrite(walletClient, contractAddress, action, provider ?? undefined);
       reviewReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setPrepared(quote);
       setNotice("Fee quote matches the configured Studio Dev profile. Review the exact action before signing.");
