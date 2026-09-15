@@ -50,3 +50,8 @@ def test_harness_preserves_registered_agent_reference_byte_for_byte():
     source = (ROOT / "harness/run/run_harness.py").read_text(encoding="utf-8")
     assert '"schema_version": "3", "agent_ref": agent_ref' in source
     assert "emitted_agent_ref" not in source
+
+
+def test_v1_emitted_agent_reference_matches_live_registration():
+    config = json.loads((ROOT / "harness/agents/refundbot-v1/config.json").read_text(encoding="utf-8"))
+    assert config["version"] == "refundbot-v1"
