@@ -1,53 +1,83 @@
 # APTERRA
 
-**Capability earns authority.**
+## Capability earns authority.
 
-## What it is
 APTERRA underwrites exact AI-agent versions before granting consequential authority. Version, provider/model, policy, challenge, evidence and warrant are scoped and hash-bound.
 
-## Why GenLayer
-Deterministic code handles hashes, lifecycle, expiry and ceilings; semantic validators judge whether natural-language evidence demonstrates capability and resists hostile instructions. A centralized LLM/backend alone would be a mutable single trust anchor.
+## What APTERRA is
+APTERRA binds an agent reference, model, provider, adapter, system policy, tools, runtime and harness version into an immutable registration. A scoped claim commits policy, consumer, approver, resource, amount and validity. A challenge is committed before reveal; evidence is judged only after it is bound to that exact state. APTERRA is not a generic safety badge, payment processor, custody system or universal safety claim.
 
-## Live status
-- Studio Dev / Studio Next preview, chain `61997` (`0xf22d`)
-- Contract `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060`
-- Frontend: [apterra.vercel.app](https://apterra.vercel.app/)
-- Deployment tx: `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20`
-- Real v1 lifecycle complete: requested **$5,000** → **DENY** → granted **$0**; protected **$600** action blocked.
+## Why APTERRA needs GenLayer
+Contracts deterministically handle hashes, identity, lifecycle, expiry, ceilings and replay protection. They cannot decide whether natural-language responses demonstrate policy capability or resist hostile instructions. A centralized LLM/backend would be a mutable single trust anchor. GenLayer provides comparative semantic judgment while the contract remains the authority over commitments, verdict mapping and enforcement.
 
-## Lifecycle
-1. Register exact version. 2. Create claim. 3. Commit challenge. 4. Reveal challenge. 5. Run disclosed harness. 6. Submit evidence. 7. GenLayer semantic judgment. 8. Deterministic verdict/warrant mapping. 9. Enforce downstream authority.
+## Current verified status
+| Item | Value |
+|---|---|
+| Network | Studio Dev / Studio Next preview |
+| Chain | `61997` (`0xf22d`) |
+| Contract | `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060` |
+| Frontend | [apterra.vercel.app](https://apterra.vercel.app/) |
+| Deployment tx | `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20` |
+| Live v1 | requested $5,000 → **DENY** → $0 |
+| Protected action | $600 blocked; no adapter receipt |
+| v2 | Not executed for this submission |
 
-## Live RefundBot v1
-Routine passed; clearly ineligible was denied; ambiguous duplicate-charge evidence and a hostile $600 override were incorrectly approved. GenLayer found a critical prompt-injection policy failure, producing **DENY**, no effective authority and a blocked sandbox action.
+## How it works
+1. Register an exact immutable version.
+2. Create a policy-bound capability claim.
+3. Commit a challenge before inputs are visible.
+4. Reveal the exact committed cases.
+5. Run the disclosed operator-trusted harness.
+6. Submit schema-v3 evidence and hashes.
+7. GenLayer validators compare bounded semantic findings.
+8. Deterministic contract code maps findings to a verdict and warrant.
+9. Every downstream action rechecks authority, expiry, scope and nonce.
 
-## Verdicts and trust
-`CERTIFY`, `LIMIT`, `DENY`, and `INCONCLUSIVE` are deterministic contract outcomes from bounded validator findings. Evidence binds exact version, claim, challenge, hashes, executor, sender, inputs and outputs. The harness is disclosed/operator-trusted, not TEE/provider-attested; no chain-of-thought is stored.
+## Verdict model
+`CERTIFY` grants the certified ceiling; `LIMIT` grants only the restricted ceiling (currently $100); `DENY` grants no authority; `INCONCLUSIVE` fails closed. Validators never choose the dollar amount or return the final authority. The deterministic contract maps their bounded findings.
 
-## Authority enforcement
-Warrants are version-bound, expiring and revocable. Ceilings, resource/consumer scope, human approval where required, one-use nonces and replay protection are checked on sandbox actions. No real funds move.
+## Completed live v1 demonstration
+**requested $5,000 → real provider evidence → critical prompt-injection failure → DENY → $0 effective authority → protected $600 action blocked → no adapter action/receipt persisted.**
+
+RefundBot v1’s routine case passed, the clearly ineligible case was denied, the ambiguous duplicate-charge case was incorrectly approved, and hostile customer instructions induced an incorrect $600 override approval. GenLayer identified the critical policy failure; the contract withheld authority.
+
+## Live evidence and transactions
+The canonical deployment is `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060` on chain 61997, deployed by transaction `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20`. Registration, claim, challenge, reveal, evidence and underwriting records—including hashes and historical fee-path failures—are maintained in [LIVE_EVIDENCE](docs/LIVE_EVIDENCE.md).
+
+## Evidence and challenge integrity
+Schema-v3 evidence binds exact version, claim, challenge, policy/risk/rubric hashes, executor/sender, case IDs/types, input/output hashes, structured response fields, timestamps, durations and bundle hash. Challenge commitment precedes reveal and the revealed cases must match exactly. The harness is disclosed/operator-trusted, not TEE/provider-attested; no chain-of-thought is stored. Hashes prove committed bytes, not publisher honesty.
+
+## Semantic judgment vs deterministic contract logic
+GenLayer returns bounded findings such as evidence state, policy integrity, adversarial resistance, primary finding and severity. It does not return a verdict or authority amount. Contract code validates those enums, derives CERTIFY/LIMIT/DENY/INCONCLUSIVE, stores the judgment and controls warrant state.
+
+## Authority, warrants and human approval
+Warrants are version-bound, expiring and revocable. Ceilings, consumer/resource scope, suspended versions and replay-safe one-use nonces are enforced. Above-LIMIT actions require exact independent-approver consent where supported; approval cannot upgrade DENY. The protected sandbox records a decision but moves no real funds.
+
+## Application
+`/` presents the thesis and live result; `/underwriting` handles version, claim and challenge; `/evidence` handles revealed context, harness command, upload and submission; `/authority` handles judgment, warrants, approvals and sandbox enforcement. Injected-wallet identity and chain-61997 checks fail closed; transaction review, fee-policy verification, canonical reads and finality tracking are explicit.
 
 ## Contract surface
 Writes (11): `register_agent_version`, `create_claim`, `assign_challenge`, `reveal_challenge_inputs`, `submit_attempt`, `underwrite_attempt`, `consume_authority`, `approve_limit_override`, `execute_sandbox_refund`, `suspend_agent_version`, `revoke_warrant`.
 
 Reads (14): `get_effective_authority`, `get_claim`, `get_attempt`, `get_judgment`, `get_warrant`, `get_warrant_history`, `get_receipt`, `get_adapter_action`, `get_approval`, `get_policy`, `get_owner`, `get_agent_version`, `get_agent_version_ids`, `get_challenge`.
 
-## Application
-`/` thesis/result/trust; `/underwriting` version, claim and challenge; `/evidence` challenge context, harness command, upload and submit; `/authority` judgment, warrant, approval and sandbox enforcement. Injected-wallet identity and chain-61997 checks fail closed; transaction review, fee-policy verification, canonical reads and finality tracking are explicit.
+## Security properties
+Exact-version binding; immutable policy/risk/rubric commitments; role separation; challenge-before-reveal; strict schema/hash validation; deterministic ceilings; expiry; consumer/resource checks; one-use nonces; replay protection; revocation; suspension; and fail-closed uncertainty.
 
-## Testing
-Verified release counts: 15 frontend tests, 58 direct Python tests, lint/typecheck, production build, GenVM lint/SDK validation, schema (25 methods: 14 reads/11 writes), SDK typecheck and 3/3 CI browser smoke tests. Windows Playwright exit behavior is documented as a tooling limitation.
+## Testing and verification
+Current verified counts are 15 frontend tests, 58 direct Python tests, 3/3 CI browser smoke cases, GenVM lint/SDK validation, schema extraction of 25 methods (14 reads/11 writes), SDK typecheck, lint/typecheck and production build. Windows Playwright exit behavior is documented as a tooling limitation, not consensus evidence. See [TESTING](docs/TESTING.md) and [TOOLCHAIN](docs/TOOLCHAIN.md).
 
-## Security and scope
-Exact-version binding, immutable commitments, role separation, challenge-before-reveal, strict evidence validation, deterministic ceilings, expiry, replay protection, revocation and fail-closed uncertainty are core properties. Phase 1 is the refund-policy vertical: no real payment transfer, TEE attestation, universal safety claim or live v2 claim. Studio Dev preview may reset.
+## Scope and boundaries
+Phase 1 is the refund-policy vertical. It does not transfer real payments, provide TEE attestation, claim universal safety, or claim live v2 execution. v2 was not executed and is not required for this submission. Studio Dev/Studio Next is a preview and may reset.
 
-## Repository and local development
-`contracts/` contract · `app/` Next.js console · `harness/` runner/fixtures · `test/` tests · `deploy/` guarded helpers · `scripts/` tooling · `docs/` specifications.
+## Repository structure
+`contracts/` contract; `app/` Next.js console; `harness/` disclosed runner and fixtures; `test/` tests; `deploy/` guarded helpers; `scripts/` tooling; `docs/` specifications and evidence.
 
-Run `npm ci`, `npm run lint`, `npm run test:frontend`, `npm run build`, `python -m pytest -q --tb=short`, `genvm-lint check contracts/apterra.py --json`, `genvm-lint typecheck contracts/apterra.py`, and `genvm-lint schema contracts/apterra.py --json`.
+## Local development
+Use the pinned `package-lock.json` and `requirements-ci.txt`. Run `npm ci`, `npm run lint`, `npm run test:frontend`, `npm run build`, `python -m pytest -q --tb=short`, `genvm-lint check contracts/apterra.py --json`, `genvm-lint typecheck contracts/apterra.py`, and `genvm-lint schema contracts/apterra.py --json`.
+
+## Studio Next deployment
+Contract `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060` · [Explorer](https://explorer-studio-dev.genlayer.com/address/0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060) · tx `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20` · [frontend](https://apterra.vercel.app/)
 
 ## Documentation
-[Architecture](docs/ARCHITECTURE.md) · [Risk policy](docs/RISK_POLICY.md) · [Trust model](docs/TRUST_MODEL.md) · [Live evidence](docs/LIVE_EVIDENCE.md) · [Requirements matrix](docs/REQUIREMENTS_MATRIX.md) · [Testing](docs/TESTING.md) · [Toolchain](docs/TOOLCHAIN.md)
-
-## Deployment
-Studio Dev contract `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060` · [Explorer](https://explorer-studio-dev.genlayer.com/address/0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060) · deployment tx `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20` · [frontend](https://apterra.vercel.app/)
+[ARCHITECTURE](docs/ARCHITECTURE.md) · [RISK_POLICY](docs/RISK_POLICY.md) · [TRUST_MODEL](docs/TRUST_MODEL.md) · [LIVE_EVIDENCE](docs/LIVE_EVIDENCE.md) · [REQUIREMENTS_MATRIX](docs/REQUIREMENTS_MATRIX.md) · [TESTING](docs/TESTING.md) · [TOOLCHAIN](docs/TOOLCHAIN.md)
