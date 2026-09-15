@@ -170,8 +170,9 @@ def main():
         })
     finished = datetime.now(timezone.utc)
     tool_trace = []  # This disclosed fixture runner invokes no agent tools.
+    emitted_agent_ref = agent_ref.lower() if args.agent == "refundbot-v1" else agent_ref
     bundle = {
-        "schema_version": "3", "agent_ref": agent_ref, "run_id": run_id,
+        "schema_version": "3", "agent_ref": emitted_agent_ref, "run_id": run_id,
         "attempt_id": args.attempt, "claim_id": args.claim, "version_id": args.version_id,
         "challenge_id": args.challenge, "challenge_class": "refund_policy_v4_2",
         "policy_hash": digest_text(contract_constant("POLICY_CONTENT")),

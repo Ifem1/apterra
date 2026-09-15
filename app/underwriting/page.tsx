@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function UnderwritingPage() { return <main className="subpage"><p className="eyebrow">APTERRA · UNDERWRITING</p><h1>Underwriting desk</h1><p>Register an exact agent version, bind a scoped claim, and commit a challenge before evidence reveal.</p><Link className="primary-link" href="/?focus=underwriting">Open live underwriting workspace →</Link></main>; }

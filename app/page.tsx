@@ -520,7 +520,7 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <a className="brand" href="#top" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></a>
-        <nav aria-label="Primary navigation"><a href="#underwriting">Underwriting</a><a href="#evidence">Evidence</a><a href="#authority">Authority</a></nav>
+        <nav aria-label="Primary navigation"><a href="/underwriting">Underwriting</a><a href="/evidence">Evidence</a><a href="/authority">Authority</a></nav>
         <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span><label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><button className="wallet-button" onClick={connectWallet} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button></div>
       </header>
 
