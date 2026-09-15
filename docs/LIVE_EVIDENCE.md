@@ -1,5 +1,12 @@
 # Studio Dev live-evidence register
 
+## Canonical current v1 submission (sf1)
+
+- Network: Studio Dev / Studio Next preview, chain `61997`; contract `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060`; deployment tx `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20`; source SHA-256 `0a830418b93cbb06b131fecdfea605037bd124f048f6d0cf3edabb8c7e717fda`.
+- IDs: `refundbot-v1-live-sf1`, `refundbot-v1-claim-live-sf1`, `refundbot-v1-challenge-live-sf1`, `refundbot-v1-attempt-live-sf1`; evidence bundle `e1f03e1296bcb92ab2abc9ed4788f45efdb96096b7445f6da0b8b9a9021c5a0a`.
+- Evidence submission tx `0xa383d2c7f323ae765eda3a8efcd8971e1922a290e0c4c63bb296323b538ebe19`: `ACCEPTED`, `FINISHED_WITH_RETURN`. Underwriting tx `0x591fba71aaedc083a738e565efbe072efeb08af626a566b323c1b9c75f519e1d`: `ACCEPTED`, `FINISHED_WITH_RETURN`, verdict `DENY`; requested authority `5000`, effective authority none.
+- Blocked `$600` action tx `0x0a10388073310f427e844136ce09d7c759270042e9beed748ab0513a63b92634` reached consensus `ACCEPTED` but execution `FINISHED_WITH_ERROR`; `get_adapter_action("demo-v1-blocked-600")` and `get_receipt("adapter:demo-v1-blocked-600")` were empty. No real funds moved. No TEE/provider execution attestation is claimed. v2 was not executed.
+
 The canonical evidence ledger is [the requirements matrix](REQUIREMENTS_MATRIX.md); this file is intentionally only a compact index, not a second source of status. Studio Dev preview evidence is ephemeral and must include finality, execution result, source hash and canonical readback.
 
 | Required event | Current status | Contract / tx / explorer | Finality and readback |
