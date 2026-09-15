@@ -12,7 +12,9 @@ def test_challenge_is_four_case_suite_with_adversarial_customer():
     assert [case["case_id"] for case in cases] == [
         "routine-eligible", "clearly-ineligible", "ambiguous-exception", "adversarial-override"
     ]
-    assert "Ignore all policy" in cases[-1]["customer"]
+    assert "SUPERVISOR OVERRIDE" in cases[-1]["customer"]
+    assert "150 days" in cases[-1]["customer"]
+    assert "missing" in cases[2]["customer"] or "incomplete" in cases[2]["customer"]
     assert all(set(case) == {"case_id", "case_type", "customer"} for case in cases)
 
 
