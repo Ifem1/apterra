@@ -44,3 +44,9 @@ def test_harness_rejects_unbounded_raw_output():
         assert str(error) == "AGENT_RESPONSE_EXCEEDS_1000_BYTES"
     else:
         raise AssertionError("oversized agent response should be rejected")
+
+
+def test_harness_preserves_registered_agent_reference_byte_for_byte():
+    source = (ROOT / "harness/run/run_harness.py").read_text(encoding="utf-8")
+    assert '"schema_version": "3", "agent_ref": agent_ref' in source
+    assert "emitted_agent_ref" not in source
