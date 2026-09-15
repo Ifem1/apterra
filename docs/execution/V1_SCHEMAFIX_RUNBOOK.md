@@ -1,15 +1,29 @@
-# v1 schema-fix lifecycle
+# v1 schema-fix lifecycle (Windows)
 
-Run each command from the repository root in normal Windows PowerShell. Each helper is independently guarded and submits at most one write through the CLI isolation flow.
+Run from the repository root. The deploy CLI scans the whole `deploy/` directory, so this function isolates one target at a time and restores every file in `finally`.
 
 ```powershell
-$env:RUN_APTERRA_REGISTER_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\010_register_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_REGISTER_SF1
-$env:RUN_APTERRA_CLAIM_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\011_create_claim_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_CLAIM_SF1
-$env:RUN_APTERRA_ASSIGN_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\012_assign_challenge_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_ASSIGN_SF1
-$env:RUN_APTERRA_REVEAL_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\013_reveal_challenge_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_REVEAL_SF1
-python .\harness\run\run_harness.py --agent refundbot-v1 --challenge-file .\harness\challenges\refund-policy-v4.2\cases.json --version-id refundbot-v1-live-sf1 --provider-id groq --executor-id 0xd6423ae82a975d55c6ceac222827a727325e0459 --attempt refundbot-v1-attempt-live-sf1 --claim refundbot-v1-claim-live-sf1 --challenge refundbot-v1-challenge-live-sf1 --out .\harness\evidence\refundbot-v1-live-sf1.json
-$env:APTERRA_EVIDENCE_FILE=".\harness\evidence\refundbot-v1-live-sf1.json"; $env:RUN_APTERRA_SUBMIT_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\014_submit_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_EVIDENCE_FILE,RUN_APTERRA_SUBMIT_SF1
-$env:RUN_APTERRA_UNDERWRITE_SF1="1"; node .\scripts\cli-shim.mjs deploy .\deploy\015_underwrite_v1_schemafix.js; Remove-Item Env:RUN_APTERRA_UNDERWRITE_SF1
+function Invoke-AptterraStep($Target,$Guard) {
+  $hold = Join-Path $env:TEMP ("apterra-deploy-hold-" + [guid]::NewGuid())
+  New-Item -ItemType Directory -Path $hold | Out-Null
+  $moved = @()
+  try {
+    Get-ChildItem .\deploy -File | Where-Object { $_.Extension -in '.js','.ts' -and $_.Name -ne $Target } | ForEach-Object { Move-Item $_.FullName $hold; $moved += $_.Name }
+    [Environment]::SetEnvironmentVariable($Guard,'1','Process')
+    node .\scripts\cli-shim.mjs deploy
+    $code = $LASTEXITCODE
+    if ($code -ne 0) { throw "Step failed ($code): $Target" }
+  } finally {
+    Remove-Item Env:$Guard -ErrorAction SilentlyContinue
+    $moved | ForEach-Object { Move-Item (Join-Path $hold $_) .\deploy }
+    Remove-Item $hold -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+Invoke-AptterraStep '010_register_v1_schemafix.js' 'RUN_APTERRA_REGISTER_SF1'
+Invoke-AptterraStep '011_create_claim_v1_schemafix.js' 'RUN_APTERRA_CLAIM_SF1'
+Invoke-AptterraStep '012_assign_challenge_v1_schemafix.js' 'RUN_APTERRA_ASSIGN_SF1'
+Invoke-AptterraStep '013_reveal_challenge_v1_schemafix.js' 'RUN_APTERRA_REVEAL_SF1'
 ```
 
-The harness must run after reveal; independently verify its bundle hash before submit. All commands target Studio Dev chain 61997 and must be stopped if the CLI reports another chain.
+Before harness execution, require `$env:APTERRA_PROVIDER_URL`, `$env:APTERRA_PROVIDER_KEY` (never print), `$env:APTERRA_PROVIDER_MODEL -eq 'openai/gpt-oss-20b'`, and optional `$env:APTERRA_PROVIDER_ID -eq 'groq'`. Run the fresh harness with sf1 IDs, then independently verify `bundle_hash` using Python `json.dumps(value, sort_keys=True, separators=(',', ':'))` and SHA-256 before setting `APTERRA_EVIDENCE_FILE` and invoking steps 014 and 015 with the same isolation function.
