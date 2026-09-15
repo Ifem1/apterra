@@ -2,11 +2,13 @@
 
 APTERRA is capability underwriting for AI agents: a specifically configured agent version is challenged against an immutable policy and evidence record before it receives narrow, expiring authority. The product is not a leaderboard, generic safety badge, identity registry, custodial escrow, token, or refund processor.
 
-## Current implementation checkpoint
+## Current release state
 
 The current codebase has a refund-policy v4.2 vertical slice. It binds provider/model/version metadata; commits a challenge digest before a separate owner-only reveal; preserves and verifies the challenge preimage across browser refresh; rejects changed or early evidence; applies deterministic CERTIFY/LIMIT/DENY/INCONCLUSIVE mapping; maintains warrant history; enforces a distinct one-use human approval for an above-$100 LIMIT action; and records an allowed sandbox adapter operation only after rechecking live contract authority. The sandbox action moves no funds.
 
-This vertical slice is not the complete rebuilt-compendium product and is not 5/5-ready. Challenge variants remain a small public fixture catalog, the harness is disclosed/operator-trusted rather than attested, full browser lifecycle and accessibility testing remain incomplete, and there is no APTERRA Studio Dev deployment or public production frontend. At code commit `72f89d48e8f0f921a0b87d8c506bb9cc40bb8ea2`, frontend unit tests passed 15/15, the production build passed, and three browser smoke tests passed in GitHub CI (run [34855094116](https://github.com/Ifem1/apterra/actions/runs/34855094116)); the local Windows Playwright process still did not exit cleanly after reporting its cases. The pinned direct GenLayer suite passed 58/58 in the clean clone and GitHub CI. None of those checks establishes live wallet/contract evidence.
+This vertical slice is not yet Phase 1 complete. Studio Dev deployment, v1 registration, r2 claim, challenge assignment and challenge reveal are complete. Fresh evidence submission, live semantic underwriting, warrant enforcement proof and the v2 retest remain unfinished because Studio RPC is currently unavailable and the evidence resubmission diagnosis is pending. The harness is disclosed/operator-trusted rather than attested.
+
+Live contract: `0x4210D8556c7e447bA70D12321ffBA1cE19eB77dd` on Studio Next / Studio Dev preview (chain `61997`). Explorer: https://explorer-studio-dev.genlayer.com/address/0x4210D8556c7e447bA70D12321ffBA1cE19eB77dd. Frontend: https://apterra.vercel.app/
 
 The authoritative status for every requirement is [the requirements and evidence ledger](docs/REQUIREMENTS_MATRIX.md). See [architecture](docs/ARCHITECTURE.md), [frozen risk policy](docs/RISK_POLICY.md), [trust model](docs/TRUST_MODEL.md), and [toolchain](docs/TOOLCHAIN.md). The available sources are the [rebuilt compendium PDF](../../APTERRA_MASTER_COMPENDIUM_REBUILT.pdf) and the [original editable compendium DOCX](../../APTERRA_MASTER_COMPENDIUM_EDITABLE.docx); an original PDF is not present in the workspace.
 
