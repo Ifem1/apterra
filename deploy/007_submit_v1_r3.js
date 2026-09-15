@@ -52,16 +52,19 @@ export default async function submitV1R3(client) {
   console.log(`FEE_VALUE=${String(fees.feeValue)}`);
   const tx = await client.writeContract({ address: CONTRACT, functionName: "submit_attempt", args, value: 0n, fees });
   console.log(`SUBMIT_ATTEMPT_TX=${tx}`);
-  const receipt = typeof client.waitForTransactionReceipt === "function"
-    ? await client.waitForTransactionReceipt({ hash: tx })
-    : (typeof client.waitForTransaction === "function" ? await client.waitForTransaction(tx) : null);
-  if (receipt) {
-    const execution = String(receipt.executionResult ?? receipt.execution_result ?? receipt.result ?? "").toUpperCase();
-    const status = String(receipt.status ?? receipt.consensusStatus ?? "").toUpperCase();
-    if (["FAILED", "REVERTED", "ERROR"].includes(status) || ["FAILED", "REVERTED", "ERROR"].includes(execution)) throw new Error(`SUBMIT_NOT_SUCCESSFUL:${status}:${execution}`);
-    console.log(`CONSENSUS_STATUS=${status || "FINALIZED"}`);
-    console.log(`EXECUTION_RESULT=${execution || "FINISHED_WITH_RETURN"}`);
-    console.log(`FINAL_RECEIPT=${jsonSafe(receipt)}`);
+  const receipt = await client.waitForTransactionReceipt({
+    hash: tx,
+    waitUntil: "decided",
+    fullTransaction: true,
+    retries: 60,
+    interval: 5000,
+  });
+  const status = String(receipt.statusName ?? "");
+  const execution = String(receipt.txExecutionResultName ?? "");
+  console.log(`STATUS_NAME=${status}`);
+  console.log(`TX_EXECUTION_RESULT_NAME=${execution}`);
+  console.log(`FINAL_RECEIPT=${jsonSafe(receipt)}`);
+  if (!(status === "ACCEPTED" || status === "FINALIZED") || execution !== "FINISHED_WITH_RETURN") {
+    throw new Error(`SUBMIT_NOT_SUCCESSFUL:${status}:${execution}`);
   }
-  else console.log("FINAL_RECEIPT=Use the printed hash to track decision/finality with the CLI read-only tracker.");
 }
