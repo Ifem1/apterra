@@ -11,10 +11,10 @@ The canonical evidence ledger is [the requirements matrix](REQUIREMENTS_MATRIX.m
 
 | Required event | Current status | Contract / tx / explorer | Finality and readback |
 |---|---|---|---|
-| Gate 0 Studio Dev APTERRA deployment | PASS | `0x4210D8556c7e447bA70D12321ffBA1cE19eB77dd`; tx `0x3aa17846cfb31f7fb565bb5dd0a86dc1f679a45b01267b23c737c05806250bab` | Finalized `MAJORITY_AGREE`; source SHA and owner readback verified |
+| Gate 0 Studio Dev APTERRA deployment | PASS | Canonical `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060`; tx `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20` | Finalized; source SHA and owner readback verified |
 | Agent version + claim + split challenge commit/reveal | PASS | Registration `0xe88f5f283bfe27ac9d37e7a8d124867a832d0df3c709cf2194ecafa79803d932`; r2 claim `0x25db62f2e0a10ad9767db886d6d62bd53d47cdd4be8be0daec9aa23bec42bb95`; assignment `0x13dd943dd9664aff27d630c80203bb9f55cdd0f0e2081d79fa094daa2a8aadce`; reveal `0xb8e177d92e31cba28675dfab8cf23f4ff0e6e7052c311a3ae273e94b9ae1db44` | Canonical reads: registered v1, claim requested 5000, challenge `REVEALED` |
-| Evidence submission + semantic underwriting (CERTIFY/LIMIT/DENY/INCONCLUSIVE) | NOT RUN live | None | Direct-mode semantic mocks are not live consensus proof |
-| LIMIT human approval and adapter allowed/blocked actions | NOT RUN live | None | Local direct regressions are not live consumer/approver transactions |
+| Evidence submission + semantic underwriting | PASS (v1 DENY) | sf1 submission `0xa383d2c7f323ae765eda3a8efcd8971e1922a290e0c4c63bb296323b538ebe19`; underwriting `0x591fba71aaedc083a738e565efbe072efeb08af626a566b323c1b9c75f519e1d` | Both `ACCEPTED` / `FINISHED_WITH_RETURN`; canonical verdict DENY |
+| Fail-closed authority enforcement | PASS (v1 DENY) | blocked `$600` tx `0x0a10388073310f427e844136ce09d7c759270042e9beed748ab0513a63b92634` | Consensus accepted, execution `FINISHED_WITH_ERROR`; no authority/action/receipt persisted |
 | Public frontend production deployment | DEPLOYED (manual) | https://apterra.vercel.app/ | Configured for Studio Dev 61997 and the deployed contract; public live-wallet flow remains to be reverified |
 
 The earlier Studionet (61999) smoke deployment recorded in `GATE_0_FOUNDATION_REPORT.md` is superseded historical tooling evidence only. It is not APTERRA deployment evidence, is excluded from the accepted network list, and must never be used to satisfy a Studio Dev gate.
