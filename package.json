@@ -18,6 +18,8 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@genlayer/transaction-kit": "^0.1.0-rc.2",
+    "@genlayer/transaction-kit-react": "^0.1.0-rc.2",
     "@next/eslint-plugin-next": "15.5.25",
     "@playwright/test": "1.62.0",
     "@types/node": "22.20.2",
