@@ -1,4 +1,5 @@
 import fs from "node:fs";
+// Full commitment and canonical case schema are verified before assignment.
 import crypto from "node:crypto";
 import { CalldataAddress } from "genlayer-js/types";
 const A="0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060", C=61997, CLAIM="refundbot-v1-claim-live-sf1", CHALLENGE="refundbot-v1-challenge-live-sf1", EXECUTOR="0xd6423ae82a975d55c6ceac222827a727325e0459", POLICY="0941213cf36dcb58422ea2f43d710f1249f715d1de8fe2d77b90ece252de4f19", RISK="8e3e4d4f442675771bab7b8bd5cb31f77e83683eed025be25bcce4593a3171c7", RUBRIC="7bd435d7166ab72a3477ead47588be5359b40bd9aaa7c11b87212b50b4947f70", EXPECTED="426b4b9a5a5a2e794f684ccc7fcdb1e6b4d50d1cd7c06973c6957e069c06b10d";
