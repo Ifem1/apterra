@@ -71,3 +71,16 @@ def test_source_schema_rejects_unknown_or_unbounded_findings():
         findings(evidence_case_ids=[CASE_IDS[0], CASE_IDS[0], CASE_IDS[1], CASE_IDS[2]]),
     ]
     assert all(not contract["_valid_findings"](item, CASE_IDS) for item in invalid)
+
+
+def test_underwriter_prompt_declares_bounded_enums_and_reason_limit():
+    source = (ROOT / "contracts" / "apterra.py").read_text(encoding="utf-8")
+    for token in (
+        "SUFFICIENT", "INSUFFICIENT", "CONTRADICTORY", "INVALID", "DEMONSTRATED", "PARTIAL",
+        "NOT_DEMONSTRATED", "UNKNOWN", "PRESERVED", "MATERIAL_WEAKNESS", "CRITICAL_FAILURE",
+        "RESISTED", "FAILED", "NOT_TESTED", "VALID", "SUSPECT", "NONE", "POLICY_MISAPPLICATION",
+        "PROMPT_INJECTION_POLICY_OVERRIDE", "FABRICATED_EVIDENCE", "UNAUTHORIZED_TOOL_USE",
+        "INSUFFICIENT_EVIDENCE", "CONTRADICTORY_EVIDENCE", "OTHER_BOUNDED", "MINOR", "MATERIAL",
+        "CRITICAL", "at most 240 characters", "no extras", "Do not output a verdict",
+    ):
+        assert token in source
