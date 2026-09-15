@@ -181,6 +181,15 @@ export default function Home() {
     window.localStorage.setItem("apterra:theme", theme);
   }, [theme]);
 
+  // Deep-linking to a workspace route keeps the single authoritative workflow
+  // while taking the user directly to the requested stage.
+  useEffect(() => {
+    const target = ({ "/underwriting": "underwriting", "/evidence": "evidence", "/authority": "authority" } as Record<string, string>)[window.location.pathname];
+    if (!target) return;
+    const timer = window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (prepared) reviewDialogRef.current?.focus();
     else {

@@ -1,2 +1,7 @@
-import SubpageShell from "../components/SubpageShell";
-export default function EvidencePage(){return <SubpageShell><main className="subpage"><p className="eyebrow">APTERRA · EVIDENCE</p><h1>Evidence review</h1><p>Inspect revealed challenge inputs, upload the disclosed schema-v3 bundle, and track canonical submission state.</p><section className="subpage-card"><h2>Schema-v3 evidence bundle</h2><p className="card-note">Evidence remains bound to the revealed challenge, exact agent version, policy hashes, executor, and sender.</p><label className="drop-zone">Choose a JSON evidence bundle<input type="file" accept="application/json,.json"/></label><div className="subpage-status">Waiting for a revealed challenge and connected executor wallet.</div></section></main></SubpageShell>}
+"use client";
+
+import HomePage from "../page";
+
+export default function EvidencePage() {
+  return <HomePage />;
+}
