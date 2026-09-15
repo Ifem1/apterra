@@ -552,18 +552,18 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         {account && walletChainId !== APTERRA_NETWORK.chainIdHex && <button className="track-button" onClick={() => void addStudioDev()}>Add Studio Dev chain</button>}
       </section>
 
-      <section className="metrics" aria-label="Underwriting principles">
+      {view === "home" && <section className="metrics" aria-label="Underwriting principles">
         <div><span className="metric-index">01</span><strong>Version-bound</strong><p>Authority belongs to the exact tested configuration.</p></div>
         <div><span className="metric-index">02</span><strong>Evidence-backed</strong><p>Claims, challenge, and attempt are committed before judgment.</p></div>
         <div><span className="metric-index">03</span><strong>Contract-enforced</strong><p>A verdict changes the actual permission boundary.</p></div>
         <div><span className="metric-index">04</span><strong>Uncertainty fails closed</strong><p>No evidence, no new authority. No silent certification.</p></div>
-      </section>
+      </section>}
 
       {!contractAddress && <section className="deployment-notice"><span className="notice-mark">!</span><div><strong>Studio Dev deployment is not configured yet</strong><p>The page will not invent live state. Set <code>NEXT_PUBLIC_APTERRA_CONTRACT_ADDRESS</code> only after an approved 61997 deployment and source/schema verification. Contract reads and writes stay disabled until then.</p></div><span className="tag pending-tag">AWAITING VERIFIED DEPLOYMENT</span></section>}
 
       {view !== "home" && <section className="workbench" id={view}>
         <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> PRODUCT WORKSPACE</div><h2>{view === "underwriting" ? "Underwriting desk" : view === "evidence" ? "Evidence review" : "Authority gate"}</h2></div><span className="section-index">{view === "underwriting" ? "01 — 03" : view === "evidence" ? "03" : "04"}</span></div>
-        <div className="workspace-grid">
+        <div className={`workspace-grid ${view === "underwriting" ? "" : "workspace-grid-full"}`}>
            {view === "underwriting" && <aside className="step-rail" aria-label="Underwriting lifecycle">
             <div className="rail-step active"><span>01</span><div><strong>Agent version</strong><small>Commit the exact configuration</small></div><b>●</b></div>
             <div className="rail-step"><span>02</span><div><strong>Capability claim</strong><small>Declare scope and authority</small></div><b>○</b></div>
