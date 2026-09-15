@@ -23,6 +23,7 @@ const PENDING_KEY = "apterra:studio-dev:pending-transactions:v1";
 
 type PendingTransaction = { hash: string; method: string; status: string; execution?: string; lifecycle?: string; readMethod?: string; readId?: string; readback?: string };
 type PreparedWrite = Awaited<ReturnType<typeof prepareContractWrite>>;
+type ThemePreference = "system" | "light" | "dark";
 
 function isPendingTransaction(value: unknown): value is PendingTransaction {
   if (!value || typeof value !== "object") return false;
@@ -116,6 +117,7 @@ function explainRead(method: string, value: unknown) {
 
 export default function Home() {
   const contractAddress = useMemo(() => configuredContractAddress(), []);
+  const [theme, setTheme] = useState<ThemePreference>("system");
   const [provider, setProvider] = useState<WalletProvider | null>(null);
   const [account, setAccount] = useState<`0x${string}` | null>(null);
   const [walletChainId, setWalletChainId] = useState<string | null>(null);
@@ -168,6 +170,16 @@ export default function Home() {
   }, [account, agentRef, attemptId, challengeId, claimId, executor, harnessAgent, providerId, versionId]);
   const reviewDialogRef = useRef<HTMLElement | null>(null);
   const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("apterra:theme") as ThemePreference | null;
+    if (saved === "light" || saved === "dark" || saved === "system") setTheme(saved);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("apterra:theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     if (prepared) reviewDialogRef.current?.focus();
@@ -509,7 +521,7 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#top" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></a>
         <nav aria-label="Primary navigation"><a href="#underwriting">Underwriting</a><a href="#evidence">Evidence</a><a href="#authority">Authority</a></nav>
-        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span><button className="wallet-button" onClick={connectWallet} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button></div>
+        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span><label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><button className="wallet-button" onClick={connectWallet} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button></div>
       </header>
 
       <section className="hero" id="top">
