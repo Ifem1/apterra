@@ -176,9 +176,9 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   const reviewDialogRef = useRef<HTMLElement | null>(null);
   const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
   const isOwner = Boolean(account && contractOwner && account.toLowerCase() === contractOwner.toLowerCase());
-  const isExecutor = Boolean(account && executor && account.toLowerCase() === executor.toLowerCase());
-  const isApprover = Boolean(account && approver && account.toLowerCase() === approver.toLowerCase());
-  const isConsumer = Boolean(account && consumer && consumer.toLowerCase() === account.toLowerCase());
+  const isExecutor = false;
+  const isApprover = false;
+  const isConsumer = false;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("apterra:theme") as ThemePreference | null;
@@ -463,7 +463,8 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         : item);
       setPending(next);
       const persisted = persistPending(next);
-      setNotice(`${summary.label}. ${summary.successful ? readback || "Transaction finalized; no automatic record target is available, so inspect canonical state manually." : "This is not a successful finalized write; do not infer state change or retry without checking the same hash."}${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+       const successMessage = current?.method === "register_agent_version" ? "Agent version registered successfully." : current?.method === "create_claim" ? "Capability claim created successfully." : current?.method === "submit_attempt" ? "Evidence submitted successfully." : current?.method === "underwrite_attempt" ? "Underwriting completed successfully." : "Transaction completed successfully.";
+       setNotice(`${summary.successful ? `${successMessage} ${readback || "Canonical state finalized."}` : `Transaction failed: ${summary.label}. Do not infer a state change or retry without checking the same hash.`}${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
       setNoticeTone(summary.successful && persisted ? "good" : "warn");
     } catch (error) {
       setNotice(`Tracking did not reach finality. The transaction remains saved; query the same hash before taking any further action. ${error instanceof Error ? error.message : ""}`);
