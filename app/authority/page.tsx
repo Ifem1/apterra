@@ -1,5 +1,4 @@
 "use client";
 
-"use client";
-import HomePage from "../page";
-export default function AuthorityPage(){return <HomePage/>;}
+import ApterraApp from "../components/ApterraApp";
+export default function Page(){return <ApterraApp view="authority"/>;}
