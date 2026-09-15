@@ -116,7 +116,7 @@ function explainRead(method: string, value: unknown) {
   } catch { return method === "get_owner" ? `Contract owner: ${String(value)}. Only this wallet may assign challenges or suspend versions.` : stringify(value); }
 }
 
-export type ApterraView = "home" | "underwriting" | "evidence" | "authority";
+export type ApterraView = "home" | "underwriting" | "evidence" | "authority" | "admin";
 
 export default function ApterraApp({ view }: { view: ApterraView }) {
   const contractAddress = useMemo(() => configuredContractAddress(), []);
@@ -178,7 +178,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   const isOwner = Boolean(account && contractOwner && account.toLowerCase() === contractOwner.toLowerCase());
   const isExecutor = Boolean(account && executor && account.toLowerCase() === executor.toLowerCase());
   const isApprover = Boolean(account && approver && account.toLowerCase() === approver.toLowerCase());
-  const isConsumer = Boolean(account && (consumer || account).toLowerCase() === account.toLowerCase());
+  const isConsumer = Boolean(account && consumer && consumer.toLowerCase() === account.toLowerCase());
 
   useEffect(() => {
     const saved = window.localStorage.getItem("apterra:theme") as ThemePreference | null;
@@ -203,7 +203,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   useEffect(() => {
     if (window.ethereum) {
       setProvider(window.ethereum);
-      void window.ethereum.request({ method: "eth_accounts" }).then(async (accounts) => {
+      if (window.localStorage.getItem("apterra:manual-disconnect") !== "1") void window.ethereum.request({ method: "eth_accounts" }).then(async (accounts) => {
         const address = normalizeWalletAccounts(accounts);
         if (!address) return;
         const chainId = await window.ethereum!.request({ method: "eth_chainId" });
@@ -278,11 +278,12 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
     }
     setBusy(true);
     try {
-      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      window.localStorage.removeItem("apterra:manual-disconnect"); const accounts = await provider.request({ method: "eth_requestAccounts" });
       const address = normalizeWalletAccounts(accounts);
       if (!address) throw new Error("Wallet returned no valid account.");
       const chainId = await provider.request({ method: "eth_chainId" });
       setAccount(address);
+      try { const owner = await readClient.readContract({ address: contractAddress!, functionName: "get_owner", args: [] }) as string; setContractOwner(owner); } catch { /* canonical owner read remains fail-closed */ }
       setWalletChainId(typeof chainId === "string" ? chainId.toLowerCase() : null);
       if (String(chainId).toLowerCase() !== APTERRA_NETWORK.chainIdHex && !(await switchToStudioDev())) return;
       const client = createWalletClient(address, provider); await client.connect("studioDevnet"); await assertWalletIdentity(provider, address); setWalletClient(client);
@@ -524,7 +525,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
     <main className="shell">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></Link>
-        <nav aria-label="Primary navigation"><a href="/underwriting" aria-current={view === "underwriting" ? "page" : undefined}>Underwriting</a><a href="/evidence" aria-current={view === "evidence" ? "page" : undefined}>Evidence</a><a href="/authority" aria-current={view === "authority" ? "page" : undefined}>Authority</a></nav>
+        <nav aria-label="Primary navigation"><a href="/underwriting" aria-current={view === "underwriting" ? "page" : undefined}>Underwriting</a><a href="/evidence" aria-current={view === "evidence" ? "page" : undefined}>Evidence</a><a href="/authority" aria-current={view === "authority" ? "page" : undefined}>Authority</a>{isOwner && <a href="/admin" aria-current={view === "admin" ? "page" : undefined}>Admin</a>}</nav>
         <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={() => { setAccount(null); setWalletClient(null); setWalletMenuOpen(false); setPrepared(null); setWalletChainId(null); }}>Disconnect</button></div>}</div></div>
       </header>
 
@@ -561,7 +562,8 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       {!contractAddress && <section className="deployment-notice"><span className="notice-mark">!</span><div><strong>Studio Dev deployment is not configured yet</strong><p>The page will not invent live state. Set <code>NEXT_PUBLIC_APTERRA_CONTRACT_ADDRESS</code> only after an approved 61997 deployment and source/schema verification. Contract reads and writes stay disabled until then.</p></div><span className="tag pending-tag">AWAITING VERIFIED DEPLOYMENT</span></section>}
 
       {view !== "home" && <section className="workbench" id={view}>
-        <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> PRODUCT WORKSPACE</div><h2>{view === "underwriting" ? "Underwriting desk" : view === "evidence" ? "Evidence review" : "Authority gate"}</h2></div><span className="section-index">{view === "underwriting" ? "01 — 03" : view === "evidence" ? "03" : "04"}</span></div>
+        <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> PRODUCT WORKSPACE</div><h2>{view === "underwriting" ? "Underwriting desk" : view === "evidence" ? "Evidence review" : view === "authority" ? "Authority gate" : "Admin"}</h2></div><span className="section-index">{view === "underwriting" ? "01 — 03" : view === "evidence" ? "03" : view === "authority" ? "04" : "ADMIN"}</span></div>
+        {view === "admin" && !isOwner && <div className="deployment-notice"><strong>Steward access only</strong><p>Connect the canonical contract owner wallet to access administrative controls.</p></div>}
         <div className={`workspace-grid ${view === "underwriting" ? "" : "workspace-grid-full"}`}>
            {view === "underwriting" && <aside className="step-rail" aria-label="Underwriting lifecycle">
             <div className="rail-step active"><span>01</span><div><strong>Agent version</strong><small>Commit the exact configuration</small></div><b>●</b></div>
@@ -621,7 +623,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               {challengeInputsRevealed && !harnessCommand && <p className="role-hint" role="status">The built-in sample runner only supports registered agent references “RefundBot v1” and “RefundBot v2” with their matching adapter. For another registered agent reference, use its separately disclosed compatible harness and upload the generated evidence bundle.</p>}
               {harnessCommand && <pre className="read-result" aria-label="Generated local harness command">{harnessCommand}</pre>}
                </>}
-               {view === "underwriting" && <div className="button-row">
+               {(view === "underwriting" || view === "admin") && <div className="button-row">
                 <button className="action-button secondary" disabled={busy || challengeInputs.length !== 4 || !contractAddress || !account || !claimId || !challengeId || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !/^0x[a-fA-F0-9]{40}$/.test(executor || account || "")} onClick={async () => { try { const assignedExecutor = (executor || account) as string; const draft = await persistChallengeDraft(window.localStorage, { claimId, challengeId, executor: assignedExecutor, cases: challengeInputs }, POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH); await makeAction("Commit refund challenge · owner only", "assign_challenge", [claimId, challengeId, RUBRIC_HASH, assignedExecutor, draft.commitment], "The exact case-input commitment is recorded without revealing inputs. Its preimage is saved locally so an owner can recover after refresh."); } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to preserve the challenge preimage."); setNoticeTone("warn"); } }}>Prepare challenge commitment <span>→</span></button>
                 <button className="action-button secondary" disabled={readBusy || !claimId || !contractAddress} onClick={() => void readCanonical("get_challenge", claimId)}>Verify committed assignment</button>
                 <button className="action-button secondary" disabled={busy || !challengeAssignmentCommitted || !claimId || !contractAddress || !account || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase()} onClick={() => makeAction("Reveal challenge inputs · owner only", "reveal_challenge_inputs", [claimId, JSON.stringify(challengeInputs)], "The contract reveals only the exact precommitted inputs and rejects mutation.")}>Prepare input reveal <span>→</span></button>
