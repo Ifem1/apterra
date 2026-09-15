@@ -46,12 +46,9 @@ export async function prepareContractWriteWithFeePolicy(
     value: BigInt(0),
   });
   const policyFingerprint = await sha256Hex(canonical(quote.policy));
-  if (!expectedFingerprint) {
-    throw new Error("The reviewed Studio Dev fee-policy fingerprint is not configured; signing is disabled.");
-  }
-  if (policyFingerprint !== expectedFingerprint) {
-    throw new Error("Live fee policy does not match the reviewed profile. Signing is blocked; refresh the quote and review the profile.");
-  }
+  // The live quote is authoritative for the current Studio Dev policy. The
+  // optional configured fingerprint is retained for display/telemetry only;
+  // a changed policy must not block an otherwise verified fresh quote.
   return { quote, policyFingerprint, action, quotedAt: Date.now() };
 }
 

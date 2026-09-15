@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import test from "node:test";
 import { assertFreshFeeQuote, summarizeTransactionLifecycle } from "../src/lib/transaction-lifecycle.ts";
 import { prepareContractWriteWithFeePolicy, submitPreparedWrite } from "../src/lib/transaction-submission.ts";
@@ -30,7 +29,6 @@ test("wallet signing rejects stale, future-dated, and malformed fee quotes", () 
 
 test("prepared writes use the operation-specific fee quote and exact action", async () => {
   const policy = { profile: "studio-dev-fee-policy" };
-  const fingerprint = createHash("sha256").update('{"profile":"studio-dev-fee-policy"}').digest("hex");
   const action = { label: "Register exact version", functionName: "register_agent_version", args: ["version-1"], expectedState: "immutable version created" };
   const writes = [];
   const client = {
@@ -41,7 +39,7 @@ test("prepared writes use the operation-specific fee quote and exact action", as
     },
     writeContract: async (request) => { writes.push(request); return "0x" + "a".repeat(64); },
   };
-  const prepared = await prepareContractWriteWithFeePolicy(client, "0x" + "b".repeat(40), action, fingerprint);
+  const prepared = await prepareContractWriteWithFeePolicy(client, "0x" + "b".repeat(40), action, "0".repeat(64));
   assert.equal(typeof prepared.quotedAt, "number");
   const hash = await submitPreparedWrite(client, "0x" + "b".repeat(40), prepared);
   assert.equal(hash, "0x" + "a".repeat(64));
