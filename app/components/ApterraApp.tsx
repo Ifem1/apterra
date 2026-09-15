@@ -631,7 +631,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                 {view === "evidence" && <>
                <div className="panel-heading"><div><span className="step-number">03</span><h3>Evidence review</h3></div><span className="tag">SCHEMA-V3</span></div>
                <p className="panel-intro">Upload the disclosed harness bundle for the revealed challenge, validate its commitments, and prepare the canonical attempt submission.</p>
-               <div className="field-grid two"><label>Challenge ID<input value={challengeId} readOnly /></label><label>Attempt ID<input value={attemptId} readOnly /></label></div>
+               <div className="field-grid two"><label>Challenge ID<input value={challengeId} onChange={(e) => setChallengeId(e.target.value)} placeholder="refundbot-v1-challenge-…" /></label><label>Attempt ID<input value={attemptId} onChange={(e) => setAttemptId(e.target.value)} placeholder="refundbot-v1-attempt-…" /></label></div>
                <label className="full-label">Harness evidence bundle (.json)<input type="file" accept="application/json,.json" onChange={(e) => {
                 const file = e.currentTarget.files?.[0];
                 if (!file) return;
@@ -655,8 +655,9 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                <div className="panel-heading"><div><span className="step-number">04</span><h3>Consensus result & authority</h3></div><span className="tag">CONTRACT STATE ONLY</span></div>
                <p className="panel-intro">Request underwriting after attempt finality. Then read the canonical warrant and test a downstream refund action against it.</p>
                <div className="inline-callout" aria-label="Canonical live v1 result"><strong>Canonical live v1 result</strong><span>REQUESTED $5,000 · VERDICT DENY · GRANTED $0 · PROTECTED $600 ACTION BLOCKED</span></div>
-              <div className="field-grid two">
-                <label>Claim, attempt, warrant, or version ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Use the exact committed ID" maxLength={128} /></label>
+               <div className="field-grid two">
+                 <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="refundbot-v1-live-…" maxLength={128} /></label>
+                 <label>Claim, attempt, warrant, or version ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Use the exact committed ID" maxLength={128} /></label>
                 <label>Proposed refund amount<input inputMode="numeric" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} placeholder="600" /></label>
                 <label>Single-use action nonce<input value={nonce} onChange={(e) => setNonce(e.target.value)} placeholder="refund-order-123" maxLength={128} /></label>
                 <label>Authorized resource ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="Must match claim resource" maxLength={128} /></label>
