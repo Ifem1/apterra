@@ -1,7 +1,4 @@
 "use client";
 
-import HomePage from "../page";
-
-export default function EvidencePage() {
-  return <HomePage />;
-}
+import SubpageShell from "../components/SubpageShell";
+export default function EvidencePage(){return <SubpageShell><main className="subpage"><p className="eyebrow">APTERRA · EVIDENCE</p><h1>Evidence review</h1><p>Inspect the revealed challenge, run the disclosed harness, and submit a bound schema-v3 bundle.</p><section className="subpage-card"><h2>Live sf1 evidence</h2><p className="card-note">Bundle <code>e1f03e1296bcb92ab2abc9ed4788f45efdb96096b7445f6da0b8b9a9021c5a0a</code> is operator-trusted evidence, not TEE attestation.</p><label className="drop-zone">Choose a JSON evidence bundle<input type="file" accept="application/json,.json"/></label><div className="subpage-status">Canonical challenge: refundbot-v1-challenge-live-sf1 · attempt: refundbot-v1-attempt-live-sf1</div></section></main></SubpageShell>}

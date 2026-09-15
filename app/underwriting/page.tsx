@@ -1,7 +1,4 @@
 "use client";
 
-import HomePage from "../page";
-
-export default function UnderwritingPage() {
-  return <HomePage />;
-}
+import SubpageShell from "../components/SubpageShell";
+export default function UnderwritingPage(){return <SubpageShell><main className="subpage"><p className="eyebrow">APTERRA · UNDERWRITING</p><h1>Underwriting desk</h1><p>Claim → challenge → evidence → GenLayer judgment → deterministic authority result.</p><section className="subpage-card"><h2>Start a bounded review</h2><div className="subpage-fields"><label>Agent version<input placeholder="refundbot-v1"/></label><label>Provider / model<input placeholder="groq · openai/gpt-oss-20b"/></label><label>Requested authority<input placeholder="$5,000"/></label><label>Validity<input placeholder="90 days"/></label></div><p className="subpage-status">Connect the injected wallet to prepare a claim. Owner-only challenge assignment and canonical reads remain enforced.</p></section></main></SubpageShell>}

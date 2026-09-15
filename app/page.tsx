@@ -184,13 +184,6 @@ export default function Home() {
   // Deep-linking to a workspace route keeps the single authoritative workflow
   // while taking the user directly to the requested stage.
   useEffect(() => {
-    const target = ({ "/underwriting": "underwriting", "/evidence": "evidence", "/authority": "authority" } as Record<string, string>)[window.location.pathname];
-    if (!target) return;
-    const timer = window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     if (prepared) reviewDialogRef.current?.focus();
     else {
       reviewReturnFocusRef.current?.focus();
@@ -538,7 +531,7 @@ export default function Home() {
           <div className="eyebrow"><span className="eyebrow-line" /> AGENT AUTHORITY, UNDERWRITTEN</div>
           <h1>Capability earns<br /><em>authority.</em></h1>
           <p>Before an agent receives consequential permission, APTERRA asks it to prove what it can do — against a real policy, a committed challenge, and independent GenLayer judgment.</p>
-          <div className="hero-actions"><a className="primary-link" href="#underwriting">Open underwriting desk <span>↘</span></a><a className="text-link" href="#trust">Read the trust boundary</a></div>
+          <div className="hero-actions"><a className="primary-link" href="/underwriting">Open underwriting desk <span>↘</span></a><a className="text-link" href="#trust">Read the trust boundary</a></div>
         </div>
         <div className="hero-art" aria-label="Authority is granted through a four-stage underwriting lifecycle">
           <div className="orbit orbit-outer" /><div className="orbit orbit-inner" />
