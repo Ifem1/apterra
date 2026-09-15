@@ -10,7 +10,9 @@ const safe = (value) => JSON.stringify(value, (_, item) => typeof item === "bigi
 export default async function redeploySchemaFix(client) {
   if (process.env.RUN_APTERRA_REDEPLOY !== "1") throw new Error("Set RUN_APTERRA_REDEPLOY=1 to authorize this single deployment");
   if (Number(client.chain?.id) !== CHAIN) throw new Error(`WRONG_CHAIN:${client.chain?.id}`);
-  const sender = String(client.account?.address ?? "").toLowerCase();
+  const sender = typeof client.account === "string"
+    ? client.account.toLowerCase()
+    : String(client.account?.address ?? "").toLowerCase();
   if (!sender) throw new Error("DEPLOYER_ACCOUNT_UNAVAILABLE");
   const source = fs.readFileSync(path.resolve(process.cwd(), "contracts", "apterra.py"), "utf8");
   const sourceSha = crypto.createHash("sha256").update(source, "utf8").digest("hex");
@@ -26,15 +28,15 @@ export default async function redeploySchemaFix(client) {
   console.log(`TX_EXECUTION_RESULT_NAME=${String(receipt.txExecutionResultName ?? "")}`);
   console.log(`FINAL_RECEIPT=${safe(receipt)}`);
   if (!(receipt.statusName === "ACCEPTED" || receipt.statusName === "FINALIZED") || receipt.txExecutionResultName !== "FINISHED_WITH_RETURN") throw new Error("DEPLOYMENT_NOT_SUCCESSFUL");
-  const address = receipt.contractAddress ?? receipt.contract_address ?? receipt.result?.contractAddress ?? receipt.result?.contract_address;
-  if (!address) throw new Error("DEPLOYED_ADDRESS_MISSING");
+  const address = receipt.to_address ?? receipt.txDataDecoded?.contractAddress ?? receipt.recipient ?? receipt.contractAddress ?? receipt.contract_address;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(address ?? "")) || /^0x0{40}$/i.test(String(address))) throw new Error(`INVALID_DEPLOYED_ADDRESS:${String(address ?? "")}`);
+  console.log(`NEW_CONTRACT_ADDRESS=${address}`);
   const ownerRaw = await client.readContract({ address, functionName: "get_owner", args: [] });
   const policyRaw = await client.readContract({ address, functionName: "get_policy", args: ["refund-policy-v4.2"] });
   const owner = typeof ownerRaw === "string" ? ownerRaw : String(ownerRaw?.owner ?? "");
   const policy = typeof policyRaw === "string" ? JSON.parse(policyRaw) : policyRaw;
   if (owner.toLowerCase() !== sender) throw new Error(`OWNER_MISMATCH:${owner}`);
   if (!policy || policy.status !== "ACTIVE") throw new Error("POLICY_NOT_ACTIVE");
-  console.log(`NEW_CONTRACT_ADDRESS=${address}`);
   console.log(`OWNER=${owner}`);
   console.log(`POLICY=${safe(policy)}`);
 }
