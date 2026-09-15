@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { ContractAction } from "@/lib/transactions";
 import { prepareContractWrite, submitPreparedWrite, summarizeTransactionLifecycle } from "@/lib/transactions";
 import { generateChallengeInputs, matchesChallengeAssignment, persistChallengeDraft, restoreChallengeDraft, type ChallengeInput } from "@/lib/challenge-draft";
@@ -523,7 +524,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></a>
+        <Link className="brand" href="/" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></Link>
         <nav aria-label="Primary navigation"><a href="/underwriting" aria-current={view === "underwriting" ? "page" : undefined}>Underwriting</a><a href="/evidence" aria-current={view === "evidence" ? "page" : undefined}>Evidence</a><a href="/authority" aria-current={view === "authority" ? "page" : undefined}>Authority</a></nav>
         <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span><label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><button className="wallet-button" onClick={connectWallet} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button></div>
       </header>
@@ -560,19 +561,20 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
 
       {!contractAddress && <section className="deployment-notice"><span className="notice-mark">!</span><div><strong>Studio Dev deployment is not configured yet</strong><p>The page will not invent live state. Set <code>NEXT_PUBLIC_APTERRA_CONTRACT_ADDRESS</code> only after an approved 61997 deployment and source/schema verification. Contract reads and writes stay disabled until then.</p></div><span className="tag pending-tag">AWAITING VERIFIED DEPLOYMENT</span></section>}
 
-      {view !== "home" && <section className="workbench" id="underwriting">
-        <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> PRODUCT WORKSPACE</div><h2>Underwriting desk</h2></div><span className="section-index">01 — 04</span></div>
+      {view !== "home" && <section className="workbench" id={view}>
+        <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> PRODUCT WORKSPACE</div><h2>{view === "underwriting" ? "Underwriting desk" : view === "evidence" ? "Evidence review" : "Authority gate"}</h2></div><span className="section-index">{view === "underwriting" ? "01 — 03" : view === "evidence" ? "03" : "04"}</span></div>
         <div className="workspace-grid">
-          <aside className="step-rail" aria-label="Underwriting lifecycle">
+           {view === "underwriting" && <aside className="step-rail" aria-label="Underwriting lifecycle">
             <div className="rail-step active"><span>01</span><div><strong>Agent version</strong><small>Commit the exact configuration</small></div><b>●</b></div>
             <div className="rail-step"><span>02</span><div><strong>Capability claim</strong><small>Declare scope and authority</small></div><b>○</b></div>
             <div className="rail-step"><span>03</span><div><strong>Challenge & evidence</strong><small>Assign before the attempt</small></div><b>○</b></div>
             <div className="rail-step"><span>04</span><div><strong>Consensus & warrant</strong><small>Read the contract decision</small></div><b>○</b></div>
             <div className="rail-note"><span className="tiny-shield">◇</span><p>Each step requires a wallet signature. APTERRA never computes a verdict or permission in the browser.</p></div>
-          </aside>
+           </aside>}
 
           <div className="form-stack">
-            <article className="panel" id="version">
+             {view === "underwriting" && <>
+             <article className="panel" id="version">
               <div className="panel-heading"><div><span className="step-number">01</span><h3>Register an agent version</h3></div><span className="tag">IMMUTABLE</span></div>
               <p className="panel-intro">Material changes create a new version. Registration identifies a configuration; it does not establish capability.</p>
               <div className="field-grid two">
@@ -587,7 +589,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                 <label>Harness version<input value={harnessVersion} onChange={(e) => setHarnessVersion(e.target.value)} maxLength={128} /></label>
               </div>
               <button className="action-button" disabled={busy || !contractAddress || !account || [versionId, agentRef, modelId, providerId, adapterId, systemHash, toolsHash, runtimeHash, harnessVersion].some((value) => !value.trim())} onClick={() => makeAction("Register agent version", "register_agent_version", [versionId, agentRef, modelId, providerId, adapterId, systemHash, toolsHash, runtimeHash, harnessVersion], "A new immutable version record binds provider/deployment, model, adapter, policy, tools, runtime and harness to the connected operator.")}>Prepare version registration <span>→</span></button>
-            </article>
+             </article>
 
             <article className="panel">
               <div className="panel-heading"><div><span className="step-number">02</span><h3>Create a capability claim</h3></div><span className="tag">REFUND · V4.2</span></div>
@@ -602,9 +604,11 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               </div>
               <div className="commitment-line"><span>POLICY <code>{POLICY_HASH.slice(0, 12)}…</code></span><span>RISK <code>{RISK_POLICY_HASH.slice(0, 12)}…</code></span></div>
               <button className="action-button secondary" disabled={busy || !contractAddress || !account || !claimId || !versionId || !/^0x[a-fA-F0-9]{40}$/.test(consumer || account || "") || !/^0x[a-fA-F0-9]{40}$/.test(approver) || approver.toLowerCase() === (consumer || account).toLowerCase() || !resourceId || !/^[1-9]\d{0,3}$/.test(requestedAmount) || Number(requestedAmount) > 5000 || !/^[1-9]\d{0,2}$/.test(validityDays) || Number(validityDays) > 90} onClick={() => makeAction("Create refund capability claim", "create_claim", [claimId, versionId, POLICY_HASH, RISK_POLICY_HASH, (consumer || account) as string, approver, resourceId, BigInt(requestedAmount), BigInt(validityDays)], "The exact version, consumer wallet, independent human approver, resource, policy hashes, requested ceiling, and validity are committed.")}>Prepare claim <span>→</span></button>
-            </article>
+             </article>
+             </>}
 
-            <article className="panel" id="evidence">
+             <article className="panel" id="evidence">
+               {view === "underwriting" && <>
               <div className="panel-heading"><div><span className="step-number">03</span><h3>Commit challenge & attempt evidence</h3></div><span className="tag">ASSIGN BEFORE REVEAL</span></div>
               <p className="panel-intro">Challenge assignment is contract-owner-only. First commit a fresh per-session input digest; after transaction finality and canonical verification, separately reveal those exact inputs. No expected-action answer key is included.</p>
               <div className="field-grid two">
@@ -617,13 +621,18 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               <div className="button-row"><button className="action-button secondary" disabled={!contractAddress || !challengeInputsRevealed} onClick={downloadCommittedChallenge}>Download canonical revealed cases</button><button className="action-button secondary" disabled={!challengeInputsRevealed || !harnessCommand} onClick={() => void copyHarnessCommand()}>Copy exact PowerShell harness command</button><span className="inline-callout"><strong>Disclosed harness</strong><span>Save the downloaded challenge file in your Windows Downloads folder. Run the copied command from the APTERRA repository root; it uses the selected version, provider, executor, claim, challenge, and attempt. Choose the adapter that matches the registered version. This disclosed sample runner does not attest or execute an arbitrary production binary. Provider credentials stay in local environment variables. The script rejects oversized inputs/output and records no chain-of-thought. Output: <code>{harnessCommand ? evidenceFilename(attemptId) : "<valid-attempt-id>-evidence.json"}</code>.</span></span></div>
               {challengeInputsRevealed && !harnessCommand && <p className="role-hint" role="status">The built-in sample runner only supports registered agent references “RefundBot v1” and “RefundBot v2” with their matching adapter. For another registered agent reference, use its separately disclosed compatible harness and upload the generated evidence bundle.</p>}
               {harnessCommand && <pre className="read-result" aria-label="Generated local harness command">{harnessCommand}</pre>}
-              <div className="button-row">
+               </>}
+               {view === "underwriting" && <div className="button-row">
                 <button className="action-button secondary" disabled={busy || challengeInputs.length !== 4 || !contractAddress || !account || !claimId || !challengeId || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !/^0x[a-fA-F0-9]{40}$/.test(executor || account || "")} onClick={async () => { try { const assignedExecutor = (executor || account) as string; const draft = await persistChallengeDraft(window.localStorage, { claimId, challengeId, executor: assignedExecutor, cases: challengeInputs }, POLICY_HASH, RISK_POLICY_HASH, RUBRIC_HASH); await makeAction("Commit refund challenge · owner only", "assign_challenge", [claimId, challengeId, RUBRIC_HASH, assignedExecutor, draft.commitment], "The exact case-input commitment is recorded without revealing inputs. Its preimage is saved locally so an owner can recover after refresh."); } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to preserve the challenge preimage."); setNoticeTone("warn"); } }}>Prepare challenge commitment <span>→</span></button>
                 <button className="action-button secondary" disabled={readBusy || !claimId || !contractAddress} onClick={() => void readCanonical("get_challenge", claimId)}>Verify committed assignment</button>
                 <button className="action-button secondary" disabled={busy || !challengeAssignmentCommitted || !claimId || !contractAddress || !account || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase()} onClick={() => makeAction("Reveal challenge inputs · owner only", "reveal_challenge_inputs", [claimId, JSON.stringify(challengeInputs)], "The contract reveals only the exact precommitted inputs and rejects mutation.")}>Prepare input reveal <span>→</span></button>
                 <span className="inline-callout"><strong>Owner check</strong><span>{contractOwner ? `Contract owner: ${contractOwner}` : "Read the owner below. Assignment and reveal remain owner-only."}</span></span>
-              </div>
-              <label className="full-label">Harness evidence bundle (.json)<input type="file" accept="application/json,.json" onChange={(e) => {
+               </div>}
+                {view === "evidence" && <>
+               <div className="panel-heading"><div><span className="step-number">03</span><h3>Evidence review</h3></div><span className="tag">SCHEMA-V3</span></div>
+               <p className="panel-intro">Upload the disclosed harness bundle for the revealed challenge, validate its commitments, and prepare the canonical attempt submission.</p>
+               <div className="field-grid two"><label>Challenge ID<input value={challengeId} readOnly /></label><label>Attempt ID<input value={attemptId} readOnly /></label></div>
+               <label className="full-label">Harness evidence bundle (.json)<input type="file" accept="application/json,.json" onChange={(e) => {
                 const file = e.currentTarget.files?.[0];
                 if (!file) return;
                 if (file.size > 20000) { setEvidence(""); setNotice("Evidence exceeds the 20,000-byte on-chain limit. Nothing was truncated or submitted."); setNoticeTone("warn"); return; }
@@ -638,12 +647,14 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                   void makeAction("Submit committed challenge attempt", "submit_attempt", [attemptId, claimId, bundle.bundle_hash, evidence], "The evidence bundle is committed to the assigned challenge and exact registered version.");
                 } catch (error) { setNotice(error instanceof Error ? error.message : "Evidence JSON is invalid."); setNoticeTone("warn"); }
               }}>Prepare evidence commitment <span>→</span></button>
-              <div className="inline-callout"><strong>Harness trust boundary</strong><span>The local executor identity and model output are disclosed commitments, not TEE/provider attestation. Validators judge the submitted evidence; they do not prove the harness publisher honest.</span></div>
-            </article>
+               <div className="inline-callout"><strong>Harness trust boundary</strong><span>The local executor identity and model output are disclosed commitments, not TEE/provider attestation. Validators judge the submitted evidence; they do not prove the harness publisher honest.</span></div>
+               </>}
+             </article>
 
-            <article className="panel" id="authority">
-              <div className="panel-heading"><div><span className="step-number">04</span><h3>Consensus result & authority</h3></div><span className="tag">CONTRACT STATE ONLY</span></div>
-              <p className="panel-intro">Request underwriting after attempt finality. Then read the canonical warrant and test a downstream refund action against it.</p>
+             {view === "authority" && <article className="panel" id="authority">
+               <div className="panel-heading"><div><span className="step-number">04</span><h3>Consensus result & authority</h3></div><span className="tag">CONTRACT STATE ONLY</span></div>
+               <p className="panel-intro">Request underwriting after attempt finality. Then read the canonical warrant and test a downstream refund action against it.</p>
+               <div className="inline-callout" aria-label="Canonical live v1 result"><strong>Canonical live v1 result</strong><span>REQUESTED $5,000 · VERDICT DENY · GRANTED $0 · PROTECTED $600 ACTION BLOCKED</span></div>
               <div className="field-grid two">
                 <label>Claim, attempt, warrant, or version ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Use the exact committed ID" maxLength={128} /></label>
                 <label>Proposed refund amount<input inputMode="numeric" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} placeholder="600" /></label>
@@ -691,7 +702,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                 </ol>
               </section>}
               {readResult && <pre className="read-result" aria-label="Canonical contract readback">{readResult}</pre>}
-            </article>
+             </article>}
           </div>
         </div>
       </section>}
@@ -731,7 +742,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
 
       {view === "home" && <section className="trust-section" id="trust"><div><div className="eyebrow"><span className="eyebrow-line" /> SCOPE & TRUST</div><h2>A warrant is<br /><em>not a promise.</em></h2></div><div className="trust-copy"><p>APTERRA records what an exact agent version demonstrated under a named challenge and policy. It does not prove legal authority, universal safety, publisher honesty, external refund execution, payment completion, or regulatory compliance.</p><p>GenLayer handles the bounded semantic residue: whether the committed attempt evidence demonstrates policy capability and resisted adversarial content. Deterministic contract code owns hashes, lifecycle, verdict mapping, expiry, revocation, and authority ceilings.</p><a href="https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle" target="_blank" rel="noreferrer">Why semantic consensus matters ↗</a></div></section>}
 
-      <footer className="footer"><a className="brand" href="#top"><span className="brand-mark">A</span><span>APTERRA</span></a><span>CAPABILITY UNDERWRITING FOR AUTONOMOUS AGENTS</span><span>STUDIO DEV PREVIEW · CHAIN 61997</span></footer>
+      <footer className="footer"><Link className="brand" href="/"><span className="brand-mark">A</span><span>APTERRA</span></Link><span>CAPABILITY UNDERWRITING FOR AUTONOMOUS AGENTS</span><span>STUDIO DEV PREVIEW · CHAIN 61997</span></footer>
     </main>
   );
 }
