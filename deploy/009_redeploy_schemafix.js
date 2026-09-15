@@ -13,7 +13,7 @@ export default async function redeploySchemaFix(client) {
   const sender = typeof client.account === "string"
     ? client.account.toLowerCase()
     : String(client.account?.address ?? "").toLowerCase();
-  if (!sender) throw new Error("DEPLOYER_ACCOUNT_UNAVAILABLE");
+  if (!/^0x[0-9a-fA-F]{40}$/.test(sender) || /^0x0{40}$/i.test(sender)) throw new Error(`INVALID_DEPLOYER_ADDRESS:${sender || "missing"}`);
   const source = fs.readFileSync(path.resolve(process.cwd(), "contracts", "apterra.py"), "utf8");
   const sourceSha = crypto.createHash("sha256").update(source, "utf8").digest("hex");
   console.log(`SOURCE_SHA256=${sourceSha}`);
@@ -21,14 +21,14 @@ export default async function redeploySchemaFix(client) {
   const estimate = await client.estimateTransactionFees({});
   if (!estimate?.distribution || BigInt(estimate.feeValue ?? 0) <= 0n) throw new Error("INVALID_NONZERO_DEPLOYMENT_FEE");
   const fees = { distribution: estimate.distribution, ...(estimate.messageAllocations?.length ? { messageAllocations: estimate.messageAllocations } : {}), feeValue: estimate.feeValue };
-  const tx = await client.deployContract({ code: source, args: [], fees, value: 0n });
+  const tx = await client.deployContract({ code: source, args: [], fees });
   console.log(`DEPLOY_TX=${tx}`);
   const receipt = await client.waitForTransactionReceipt({ hash: tx, waitUntil: "decided", fullTransaction: true, retries: 120, interval: 5000 });
   console.log(`STATUS_NAME=${String(receipt.statusName ?? "")}`);
   console.log(`TX_EXECUTION_RESULT_NAME=${String(receipt.txExecutionResultName ?? "")}`);
   console.log(`FINAL_RECEIPT=${safe(receipt)}`);
   if (!(receipt.statusName === "ACCEPTED" || receipt.statusName === "FINALIZED") || receipt.txExecutionResultName !== "FINISHED_WITH_RETURN") throw new Error("DEPLOYMENT_NOT_SUCCESSFUL");
-  const address = receipt.to_address ?? receipt.txDataDecoded?.contractAddress ?? receipt.recipient ?? receipt.contractAddress ?? receipt.contract_address;
+  const address = receipt.data?.contract_address ?? receipt.txDataDecoded?.contractAddress ?? receipt.contractAddress ?? receipt.contract_address;
   if (!/^0x[0-9a-fA-F]{40}$/.test(String(address ?? "")) || /^0x0{40}$/i.test(String(address))) throw new Error(`INVALID_DEPLOYED_ADDRESS:${String(address ?? "")}`);
   console.log(`NEW_CONTRACT_ADDRESS=${address}`);
   const ownerRaw = await client.readContract({ address, functionName: "get_owner", args: [] });
@@ -36,7 +36,8 @@ export default async function redeploySchemaFix(client) {
   const owner = typeof ownerRaw === "string" ? ownerRaw : String(ownerRaw?.owner ?? "");
   const policy = typeof policyRaw === "string" ? JSON.parse(policyRaw) : policyRaw;
   if (owner.toLowerCase() !== sender) throw new Error(`OWNER_MISMATCH:${owner}`);
-  if (!policy || policy.status !== "ACTIVE") throw new Error("POLICY_NOT_ACTIVE");
+  if (!policy || policy.status !== "ACTIVE" || policy.policy_id !== "refund-policy-v4.2" || policy.scope !== "refund_policy_v4_2" || policy.action !== "REFUND") throw new Error("POLICY_VERIFICATION_FAILED");
   console.log(`OWNER=${owner}`);
   console.log(`POLICY=${safe(policy)}`);
+  console.log("DEPLOYMENT_VERIFIED=true");
 }
