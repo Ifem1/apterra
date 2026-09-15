@@ -33,6 +33,16 @@ Contracts deterministically handle hashes, identity, lifecycle, expiry, ceilings
 8. Deterministic contract code maps findings to a verdict and warrant.
 9. Every downstream action rechecks authority, expiry, scope and nonce.
 
+## Phase 1 stewardship model
+
+APTERRA Phase 1 deliberately separates the party requesting authority from the party assigning the challenge.
+
+An agent operator can register a version and create a capability claim, but challenge assignment and reveal are performed by the APTERRA contract owner. This prevents an applicant from choosing or mutating its own evaluation after requesting authority.
+
+The owner does not choose the underwriting verdict or dollar limit. GenLayer validators produce bounded semantic findings from the committed evidence, and deterministic contract code maps those findings into CERTIFY, LIMIT, DENY or INCONCLUSIVE.
+
+This creates a deliberate Phase 1 tradeoff: challenge administration is steward-mediated and therefore not yet permissionless or horizontally scalable. A production evolution would replace the single steward with multiple approved challengers or a decentralized challenge-selection mechanism while preserving the same independent-judgment and deterministic-enforcement model.
+
 ## Verdict model
 `CERTIFY` grants the certified ceiling; `LIMIT` grants only the restricted ceiling (currently $100); `DENY` grants no authority; `INCONCLUSIVE` fails closed. Validators never choose the dollar amount or return the final authority. The deterministic contract maps their bounded findings.
 
