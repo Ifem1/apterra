@@ -2,6 +2,6 @@
   <rect width="64" height="64" fill="#101e2d"/>
   <g transform="translate(32 32) rotate(45)">
     <rect x="-18" y="-18" width="36" height="36" fill="none" stroke="#f1c52b" stroke-width="2"/>
-    <text x="0" y="7" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#f1c52b" transform="rotate(-45)">A</text>
+    <text x="0" y="7" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#f1c52b">A</text>
   </g>
 </svg>
