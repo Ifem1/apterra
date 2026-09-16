@@ -9,11 +9,18 @@ import { parseAgentVersionIds, parseAgentVersionRecord, type AgentVersionRecord 
 import { buildPowerShellHarnessCommand, challengeFilename, evidenceFilename } from "@/lib/harness-command";
 import {
   APTERRA_NETWORK,
-  configuredContractAddress,
-  createWalletClient,
   assertWalletIdentity,
-  normalizeWalletAccounts,
+  clearManualDisconnect,
+  configuredContractAddress,
+  connectWalletSession,
+  createWalletClient,
+  disconnectedWalletState,
+  isManualDisconnect,
+  markManualDisconnect,
   readClient,
+  restoreWalletSession,
+  walletStateAfterAccountChange,
+  walletStateAfterChainChange,
   type WalletProvider,
 } from "@/lib/network";
 
@@ -128,7 +135,8 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   const [walletClient, setWalletClient] = useState<ReturnType<typeof createWalletClient> | null>(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
-  const [notice, setNotice] = useState("Connect a wallet to Studio Dev to begin.");
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"neutral" | "good" | "warn">("neutral");
   const [busy, setBusy] = useState(false);
   const [prepared, setPrepared] = useState<PreparedWrite | null>(null);
@@ -175,6 +183,14 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   }, [account, agentRef, attemptId, challengeId, claimId, executor, harnessAgent, providerId, versionId]);
   const reviewDialogRef = useRef<HTMLElement | null>(null);
   const reviewReturnFocusRef = useRef<HTMLElement | null>(null);
+  const refreshContractOwner = useCallback(async () => {
+    if (!contractAddress) { setContractOwner(null); return; }
+    try {
+      const result = await readClient.readContract({ address: contractAddress, functionName: "get_owner", args: [] });
+      const owner = typeof result === "string" ? result : (result as { as_hex?: string } | null)?.as_hex;
+      setContractOwner(typeof owner === "string" ? owner : null);
+    } catch { setContractOwner(null); }
+  }, [contractAddress]);
   const isOwner = Boolean(account && contractOwner && account.toLowerCase() === contractOwner.toLowerCase());
   const isExecutor = false;
   const isApprover = false;
@@ -202,13 +218,15 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
 
   useEffect(() => {
     if (window.ethereum) {
-      setProvider(window.ethereum);
-      if (window.localStorage.getItem("apterra:manual-disconnect") !== "1") void window.ethereum.request({ method: "eth_accounts" }).then(async (accounts) => {
-        const address = normalizeWalletAccounts(accounts);
-        if (!address) return;
-        const chainId = await window.ethereum!.request({ method: "eth_chainId" });
-        setAccount(address); setWalletChainId(String(chainId).toLowerCase());
-        setWalletClient(createWalletClient(address, window.ethereum!));
+      const injected = window.ethereum;
+      setProvider(injected);
+      if (!isManualDisconnect(window.localStorage)) void restoreWalletSession(injected).then((session) => {
+        if (!session) return;
+        setAccount(session.account);
+        setWalletChainId(session.chainId);
+        setWalletClient(createWalletClient(session.account, injected));
+        setWalletError(null);
+        void refreshContractOwner();
       }).catch(() => undefined);
     }
     setPending(loadPending());
@@ -229,25 +247,25 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       setChallengeInputs(generateChallengeInputs(random));
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshContractOwner]);
 
   useEffect(() => {
     if (!provider?.on) return;
     const onAccounts = (accounts: unknown) => {
-      const next = normalizeWalletAccounts(accounts);
-      setAccount(next);
-      setWalletClient(next ? createWalletClient(next, provider) : null);
-      setNotice(next ? "Wallet account changed. Verify the displayed account before signing." : "Wallet disconnected.");
-      setNoticeTone("warn");
+      if (isManualDisconnect(window.localStorage)) return;
+      const next = walletStateAfterAccountChange({ account, chainId: walletChainId }, accounts);
+      setAccount(next.account);
+      setWalletClient(next.account ? createWalletClient(next.account, provider) : null);
+      setWalletError(null);
       setPrepared(null);
+      if (next.account) void refreshContractOwner();
+      else setContractOwner(null);
     };
     const onChain = (chainId: unknown) => {
-      const nextChain = typeof chainId === "string" ? chainId.toLowerCase() : null;
-      setWalletChainId(nextChain);
-      setNotice(nextChain === APTERRA_NETWORK.chainIdHex
-        ? "Studio Dev selected. Verify the displayed account before signing."
-        : "Wrong wallet network. Add/select Studio Dev (chain 61997) and reconnect; the app will verify eth_chainId before any write.");
-      setNoticeTone("warn");
+      if (isManualDisconnect(window.localStorage)) return;
+      const next = walletStateAfterChainChange({ account, chainId: walletChainId }, chainId);
+      setWalletChainId(next.chainId);
+      setWalletError(null);
       setPrepared(null);
     };
     provider.on("accountsChanged", onAccounts);
@@ -256,43 +274,48 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       provider.removeListener?.("accountsChanged", onAccounts);
       provider.removeListener?.("chainChanged", onChain);
     };
-  }, [provider]);
-
-  const switchToStudioDev = useCallback(async () => {
-    if (!provider) return false;
-    try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: APTERRA_NETWORK.chainIdHex }] }); }
-    catch (error) {
-      if ((error as { code?: number })?.code !== 4902) { setWalletChainId(String(await provider.request({ method: "eth_chainId" })).toLowerCase()); setNotice("Switch to Studio Dev was rejected. Writes remain disabled."); setNoticeTone("warn"); return false; }
-      await provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: APTERRA_NETWORK.chainIdHex, chainName: APTERRA_NETWORK.name, nativeCurrency: { name: "GenLayer GEN", symbol: "GEN", decimals: 18 }, rpcUrls: [APTERRA_NETWORK.rpc], blockExplorerUrls: [APTERRA_NETWORK.explorer] }] });
-      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: APTERRA_NETWORK.chainIdHex }] });
-    }
-    const chainId = String(await provider.request({ method: "eth_chainId" })).toLowerCase(); setWalletChainId(chainId);
-    const ok = chainId === APTERRA_NETWORK.chainIdHex; if (ok) { setNotice("Studio Dev is active."); setNoticeTone("good"); } return ok;
-  }, [provider]);
+  }, [account, provider, refreshContractOwner, walletChainId]);
 
   const connectWallet = useCallback(async () => {
     if (!provider) {
-      setNotice("No injected EIP-1193 wallet was detected in this browser.");
-      setNoticeTone("warn");
+      setWalletError("No injected EIP-1193 wallet was detected in this browser.");
       return;
     }
     setBusy(true);
+    setWalletError(null);
     try {
-      window.localStorage.removeItem("apterra:manual-disconnect"); const accounts = await provider.request({ method: "eth_requestAccounts" });
-      const address = normalizeWalletAccounts(accounts);
-      if (!address) throw new Error("Wallet returned no valid account.");
-      const chainId = await provider.request({ method: "eth_chainId" });
-      setAccount(address);
-      try { const owner = await readClient.readContract({ address: contractAddress!, functionName: "get_owner", args: [] }) as string; setContractOwner(owner); } catch { /* canonical owner read remains fail-closed */ }
-      setWalletChainId(typeof chainId === "string" ? chainId.toLowerCase() : null);
-      if (String(chainId).toLowerCase() !== APTERRA_NETWORK.chainIdHex && !(await switchToStudioDev())) return;
-      const client = createWalletClient(address, provider); await client.connect("studioDevnet"); await assertWalletIdentity(provider, address); setWalletClient(client);
-      setNotice("Connected to Studio Dev (61997). Reads are canonical; each write still requires a separate wallet signature."); setNoticeTone("good");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Wallet connection failed.");
-      setNoticeTone("warn");
+      const result = await connectWalletSession(provider);
+      if (!result.session) {
+        const cleared = disconnectedWalletState();
+        setAccount(cleared.account);
+        setWalletChainId(cleared.chainId);
+        setWalletClient(null);
+        setContractOwner(null);
+        setWalletMenuOpen(false);
+        setPrepared(null);
+        setWalletError(result.error);
+        return;
+      }
+      clearManualDisconnect(window.localStorage);
+      setAccount(result.session.account);
+      setWalletChainId(result.session.chainId);
+      setWalletClient(createWalletClient(result.session.account, provider));
+      setPrepared(null);
+      await refreshContractOwner();
     } finally { setBusy(false); }
-  }, [provider, switchToStudioDev]);
+  }, [provider, refreshContractOwner]);
+
+  const disconnectWallet = useCallback(() => {
+    markManualDisconnect(window.localStorage);
+    const cleared = disconnectedWalletState();
+    setAccount(cleared.account);
+    setWalletChainId(cleared.chainId);
+    setWalletClient(null);
+    setContractOwner(null);
+    setWalletError(null);
+    setWalletMenuOpen(false);
+    setPrepared(null);
+  }, []);
 
   const readCanonical = useCallback(async (method: string, recordId?: string) => {
     if (!contractAddress) return;
@@ -527,7 +550,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       <header className="topbar">
         <Link className="brand" href="/" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></Link>
         <nav aria-label="Primary navigation"><a href="/underwriting" aria-current={view === "underwriting" ? "page" : undefined}>Underwriting</a><a href="/evidence" aria-current={view === "evidence" ? "page" : undefined}>Evidence</a><a href="/authority" aria-current={view === "authority" ? "page" : undefined}>Authority</a>{isOwner && <a href="/admin" aria-current={view === "admin" ? "page" : undefined}>Admin</a>}</nav>
-        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy}>{account ? compact(account) : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={() => { setAccount(null); setWalletClient(null); setWalletMenuOpen(false); setPrepared(null); setWalletChainId(null); }}>Disconnect</button></div>}</div></div>
+        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy} title={walletError ?? undefined} aria-label={walletError ? `${walletError} Retry wallet connection` : undefined}>{account ? compact(account) : busy ? "Connecting…" : walletError?.startsWith("No injected") ? "Wallet unavailable" : walletError ? "Connection failed · retry" : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={disconnectWallet}>Disconnect</button></div>}</div></div>
       </header>
 
       {view === "home" && <section className="hero" id="top">
@@ -545,13 +568,6 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         </div>
         <div className="hero-foot"><span>REFUND POLICY V4.2</span><span>ONE CAPABILITY · ONE VERSION · ONE BOUNDED WARRANT</span><span>PREVIEW · 61997</span></div>
       </section>}
-
-      <section className="status-strip" aria-live="polite">
-        <span className={`status-icon ${noticeTone}`}>{noticeTone === "good" ? "✓" : noticeTone === "warn" ? "!" : "i"}</span>
-        <span>{notice}</span>
-        <span className="status-account">{compact(account)}</span>
-        {account && walletChainId !== APTERRA_NETWORK.chainIdHex && <button className="track-button" onClick={() => void switchToStudioDev()}>Switch to Studio Dev</button>}
-      </section>
 
       {view === "home" && <section className="metrics" aria-label="Underwriting principles">
         <div><span className="metric-index">01</span><strong>Version-bound</strong><p>Authority belongs to the exact tested configuration.</p></div>
@@ -740,6 +756,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
 
       <section className="transaction-panel">
         <div className="section-heading compact-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> TRANSACTION TRUTH</div><h2>Receipt & finality</h2></div><span className="tag">SAME-HASH TRACKING</span></div>
+        {notice && <div className="inline-callout" role="status" aria-live="polite"><strong>{noticeTone === "good" ? "Action confirmed" : noticeTone === "warn" ? "Action needs attention" : "Action update"}</strong><span>{notice}</span></div>}
         {pending.length === 0 ? <p className="empty-state">No transaction has been submitted in this browser session. Nothing is seeded or simulated.</p> : <div className="transaction-list">{pending.map((item) => <div className="transaction-row" key={item.hash}><div><strong>{item.method}</strong><code>{item.hash}</code><span>{item.lifecycle ?? item.status}{item.execution ? ` · ${item.execution}` : ""}{item.readback ? ` · ${item.readback}` : ""}</span></div><div className="transaction-actions"><a href={`${APTERRA_NETWORK.explorer}/tx/${item.hash}`} target="_blank" rel="noreferrer">View transaction ↗</a><button className="track-button" disabled={busy} onClick={() => void trackDecision(item.hash)}>Check decision</button><button className="track-button" disabled={busy} onClick={() => void trackTransaction(item.hash)}>Check finality</button></div></div>)}</div>}
       </section>
 

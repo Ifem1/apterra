@@ -10,6 +10,8 @@ export const APTERRA_NETWORK = Object.freeze({
   explorer: "https://explorer-studio-dev.genlayer.com",
 });
 
+export const MANUAL_DISCONNECT_KEY = "apterra:manual-disconnect";
+
 export const readClient = createClient({ chain: studioDevnet });
 
 export type WalletProvider = {
@@ -18,9 +20,35 @@ export type WalletProvider = {
   removeListener?(event: string, listener: (...args: unknown[]) => void): void;
 };
 
+export type WalletState = {
+  account: `0x${string}` | null;
+  chainId: string | null;
+};
+
+export type WalletSession = {
+  account: `0x${string}`;
+  chainId: string;
+};
+
+export type WalletConnectionResult =
+  | { session: WalletSession; error: null }
+  | { session: null; error: string };
+
+export type WalletStorage = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+};
+
 export function normalizeWalletAccounts(value: unknown): `0x${string}` | null {
   return Array.isArray(value) && typeof value[0] === "string" && /^0x[a-fA-F0-9]{40}$/.test(value[0])
     ? value[0] as `0x${string}`
+    : null;
+}
+
+export function normalizeWalletChainId(value: unknown): string | null {
+  return typeof value === "string" && /^0x[a-fA-F0-9]+$/.test(value)
+    ? value.toLowerCase()
     : null;
 }
 
@@ -51,8 +79,8 @@ export function createWalletClient(address: `0x${string}`, provider: WalletProvi
 }
 
 export async function assertStudioDev(provider: WalletProvider): Promise<void> {
-  const chainId = await provider.request({ method: "eth_chainId" });
-  if (typeof chainId !== "string" || chainId.toLowerCase() !== APTERRA_NETWORK.chainIdHex) {
+  const chainId = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
+  if (chainId !== APTERRA_NETWORK.chainIdHex) {
     throw new Error(`Wrong wallet network. Switch to Studio Dev (chain ${APTERRA_NETWORK.chainId}).`);
   }
 }
@@ -64,4 +92,102 @@ export async function assertWalletIdentity(provider: WalletProvider, expected: `
   if (!active || active.toLowerCase() !== expected.toLowerCase()) {
     throw new Error("The wallet account changed or disconnected. Reconnect and review the transaction again before signing.");
   }
+}
+
+async function switchAndVerifyStudioDev(provider: WalletProvider): Promise<string> {
+  const current = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
+  if (current === APTERRA_NETWORK.chainIdHex) return current;
+
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
+    });
+  } catch (error) {
+    if ((error as { code?: number })?.code !== 4902) throw error;
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [{
+        chainId: APTERRA_NETWORK.chainIdHex,
+        chainName: APTERRA_NETWORK.name,
+        nativeCurrency: { name: "GenLayer GEN", symbol: "GEN", decimals: 18 },
+        rpcUrls: [APTERRA_NETWORK.rpc],
+        blockExplorerUrls: [APTERRA_NETWORK.explorer],
+      }],
+    });
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
+    });
+  }
+
+  const finalChainId = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
+  if (finalChainId !== APTERRA_NETWORK.chainIdHex) {
+    throw new Error(`Wrong wallet network. Switch to Studio Dev (chain ${APTERRA_NETWORK.chainId}).`);
+  }
+  return finalChainId;
+}
+
+export async function connectWalletSession(provider: WalletProvider): Promise<WalletConnectionResult> {
+  const browserStorage = typeof window === "undefined" ? null : window.localStorage;
+  const preserveManualDisconnect = browserStorage ? isManualDisconnect(browserStorage) : false;
+  if (browserStorage) markManualDisconnect(browserStorage);
+
+  try {
+    const requestedAccount = normalizeWalletAccounts(await provider.request({ method: "eth_requestAccounts" }));
+    if (!requestedAccount) throw new Error("Wallet returned no valid account.");
+
+    await switchAndVerifyStudioDev(provider);
+
+    const finalAccount = normalizeWalletAccounts(await provider.request({ method: "eth_accounts" }));
+    const finalChainId = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
+    if (!finalAccount || finalAccount.toLowerCase() !== requestedAccount.toLowerCase()) {
+      throw new Error("The wallet account changed during connection. Reconnect and confirm the intended account.");
+    }
+    if (finalChainId !== APTERRA_NETWORK.chainIdHex) {
+      throw new Error(`Wrong wallet network. Switch to Studio Dev (chain ${APTERRA_NETWORK.chainId}).`);
+    }
+
+    return { session: { account: finalAccount, chainId: finalChainId }, error: null };
+  } catch (error) {
+    if (browserStorage && !preserveManualDisconnect) clearManualDisconnect(browserStorage);
+    return {
+      session: null,
+      error: error instanceof Error ? error.message : "Wallet connection failed.",
+    };
+  }
+}
+
+export async function restoreWalletSession(provider: WalletProvider): Promise<WalletSession | null> {
+  const firstAccount = normalizeWalletAccounts(await provider.request({ method: "eth_accounts" }));
+  if (!firstAccount) return null;
+  const chainId = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
+  if (!chainId) return null;
+  const finalAccount = normalizeWalletAccounts(await provider.request({ method: "eth_accounts" }));
+  if (!finalAccount || finalAccount.toLowerCase() !== firstAccount.toLowerCase()) return null;
+  return { account: finalAccount, chainId };
+}
+
+export function walletStateAfterAccountChange(state: WalletState, accounts: unknown): WalletState {
+  return { ...state, account: normalizeWalletAccounts(accounts) };
+}
+
+export function walletStateAfterChainChange(state: WalletState, chainId: unknown): WalletState {
+  return { ...state, chainId: normalizeWalletChainId(chainId) };
+}
+
+export function disconnectedWalletState(): WalletState {
+  return { account: null, chainId: null };
+}
+
+export function isManualDisconnect(storage: WalletStorage): boolean {
+  return storage.getItem(MANUAL_DISCONNECT_KEY) === "1";
+}
+
+export function markManualDisconnect(storage: WalletStorage): void {
+  storage.setItem(MANUAL_DISCONNECT_KEY, "1");
+}
+
+export function clearManualDisconnect(storage: WalletStorage): void {
+  storage.removeItem(MANUAL_DISCONNECT_KEY);
 }
