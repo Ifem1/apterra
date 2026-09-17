@@ -140,10 +140,12 @@ test("request after the full 48-hour cooldown is allowed", async () => {
 test("concurrent duplicate requests cannot both pay", async () => {
   const store = makeStore();
   let releaseSend;
+  let signalStarted;
+  const started = new Promise((resolve) => { signalStarted = resolve; });
   const gate = new Promise((resolve) => { releaseSend = resolve; });
-  const firstSigner = makeSigner({ delay: () => gate });
+  const firstSigner = makeSigner({ delay: async () => { signalStarted(); await gate; } });
   const first = executeFaucetRequest(DEST, deps(store, firstSigner, { requestKey: "ip-a" }));
-  await new Promise((resolve) => setImmediate(resolve));
+  await started;
   const secondSigner = makeSigner();
   const second = await executeFaucetRequest(DEST, deps(store, secondSigner, { requestKey: "ip-b" }));
   assert.equal(second.status, 409);
@@ -185,7 +187,7 @@ test("signer errors and secrets never appear in API-safe results", async () => {
 });
 
 test("faucet private-key environment variable is absent from the client component", () => {
-  const clientSource = fs.readFileSync(new URL("../app/components/FaucetNavMount.tsx", import.meta.url), "utf8");
+  const clientSource = fs.readFileSync("app/components/FaucetNavMount.tsx", "utf8");
   assert.equal(clientSource.includes("APTERRA_FAUCET_PRIVATE_KEY"), false);
   assert.equal(clientSource.includes("NEXT_PUBLIC_APTERRA_FAUCET"), false);
 });
