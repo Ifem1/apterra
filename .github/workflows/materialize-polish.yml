@@ -1,0 +1,38 @@
+name: Materialize frontend polish
+
+on:
+  push:
+    branches:
+      - frontend-polish-pass
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.16.0
+          cache: npm
+      - name: Apply isolated frontend polish
+        run: node scripts/apply-frontend-polish.mjs
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Lint and typecheck
+        run: npm run lint
+      - name: Frontend tests
+        run: npm run test:frontend
+      - name: Production build
+        run: npm run build
+      - name: Upload finished frontend files
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-polish-files
+          path: |
+            app/components/ApterraApp.tsx
+            app/globals.css
+            test/frontend-polish.test.mjs
+          if-no-files-found: error
