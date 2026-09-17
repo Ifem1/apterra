@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import FaucetNavMount from "./components/FaucetNavMount";
 import "./globals.css";
+import "./faucet.css";
 
 export const metadata: Metadata = {
   title: "APTERRA | Capability Underwriting",
@@ -7,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><body>{children}<FaucetNavMount /></body></html>;
 }
