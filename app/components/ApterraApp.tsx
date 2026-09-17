@@ -641,7 +641,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               <p className="panel-intro">Material changes create a new version. Registration identifies a configuration; it does not establish capability.</p>
               <div className="field-grid two">
                 <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="unique-version-id" maxLength={128} /></label>
-                <label>Agent reference · disclosed runner identity<input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} placeholder="RefundBot v1 or RefundBot v2" maxLength={128} /><span className="role-hint">The sample runner binds its configuration identity in the evidence. It must exactly match the registered value and selected runner.</span></label>
+                <label>Agent reference · disclosed runner identity<input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} placeholder="agent-reference-id" maxLength={128} /><span className="role-hint">The sample runner binds its configuration identity in the evidence. It must exactly match the registered value and selected runner.</span></label>
                 <label>Model ID<input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="provider/model revision" maxLength={128} /></label>
                 <label>Provider / deployment ID<input value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="provider and deployment revision" maxLength={128} /></label>
                 <label>Adapter ID<input value={adapterId} onChange={(e) => setAdapterId(e.target.value)} placeholder="OpenAI-compatible adapter version" maxLength={128} /></label>
@@ -726,36 +726,61 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
              {view === "authority" && <article className="panel" id="authority">
                <div className="panel-heading"><div><span className="step-number">04</span><h3>Consensus result & authority</h3></div><span className="tag">CONTRACT STATE ONLY</span></div>
                <p className="panel-intro">Request underwriting after attempt finality. Then read the canonical warrant and test a downstream refund action against it.</p>
-               <div className="inline-callout" aria-label="Canonical live v1 result"><strong>Canonical live v1 result</strong><span>REQUESTED $5,000 · VERDICT DENY · GRANTED $0 · PROTECTED $600 ACTION BLOCKED</span></div>
-               <div className="field-grid two">
-                 <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="refundbot-v1-live-…" maxLength={128} /></label>
-                 <label>Claim, attempt, warrant, or version ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Use the exact committed ID" maxLength={128} /></label>
-                <label>Proposed refund amount<input inputMode="numeric" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} placeholder="600" /></label>
-                <label>Single-use action nonce<input value={nonce} onChange={(e) => setNonce(e.target.value)} placeholder="refund-order-123" maxLength={128} /></label>
-                <label>Authorized resource ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="Must match claim resource" maxLength={128} /></label>
-                <label>Refund operation ID<input value={operationId} onChange={(e) => setOperationId(e.target.value)} placeholder="refund-op-2026-001" maxLength={128} /></label>
-              </div>
-              <div className="button-row wrap">
+               <div className="authority-underwriting-action">
                 <button className="action-button" disabled={busy || !contractAddress || !account || !attemptId} onClick={() => makeAction("Request semantic underwriting", "underwrite_attempt", [attemptId], "GenLayer validators judge the exact committed evidence; contract maps findings to a canonical verdict.")}>Prepare underwriting <span>→</span></button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress} onClick={() => void readCanonical("get_owner")}>Read contract owner</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_claim")}>Read claim</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_agent_version")}>Read version</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress} onClick={() => void readCanonical("get_agent_version_ids")}>Read version history</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_challenge")}>Read challenge</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_judgment")}>Read judgment</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_effective_authority")}>Read effective authority</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_warrant_history")}>Read warrant history</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_warrant")}>Read warrant</button>
-                <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_adapter_action")}>Read adapter action</button>
-                <button className="action-button secondary" disabled={busy || !contractAddress || !account || !versionId || !resourceId || !operationId || !nonce || !/^[1-9]\d*$/.test(actionAmount) || (!!(consumer || account) && (consumer || account).toLowerCase() !== account.toLowerCase())} onClick={() => makeAction("Execute protected sandbox adapter action", "execute_sandbox_refund", [versionId, resourceId, operationId, BigInt(actionAmount), nonce, ""], "The contract checks current authority immediately before recording a bounded sandbox refund-service action. No funds move; above-$100 LIMIT actions require separate exact human approval.")}>Prepare adapter action <span>→</span></button>
-                <label>Exact active LIMIT warrant ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Usually the attempt ID" maxLength={128} /></label>
-                <label>Approval ID<input value={approvalId} onChange={(e) => setApprovalId(e.target.value)} placeholder="limit-approval-001" maxLength={128} /></label>
-                <label>Approval expiry (ISO timestamp)<input value={approvalExpiry} onChange={(e) => setApprovalExpiry(e.target.value)} placeholder="2026-09-14T12:00:00+00:00" /></label>
-                <label>Approval nonce<input value={approvalNonce} onChange={(e) => setApprovalNonce(e.target.value)} placeholder="unique-approval-nonce" maxLength={128} /></label>
-                <button className="action-button secondary" disabled={busy || !contractAddress || !account || !queryId || !approvalId || !operationId || !approvalNonce || !approvalExpiry || !/^[1-9]\d*$/.test(actionAmount) || !approver || approver.toLowerCase() !== account.toLowerCase()} onClick={() => makeAction("Approve one exact above-LIMIT sandbox action", "approve_limit_override", [approvalId, queryId, operationId, BigInt(actionAmount), approvalNonce, approvalExpiry], "Only the claim-bound human approver can approve this exact operation and amount, for one use, until no later than warrant expiry.")}>Prepare human approval <span>→</span></button>
-                <label>Owner revocation reason<input value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} maxLength={128} /></label>
-                <button className="action-button secondary" disabled={busy || !contractAddress || !account || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !queryId || !revokeReason.trim()} onClick={() => makeAction("Revoke active warrant · owner only", "revoke_warrant", [queryId, revokeReason], "Owner revocation disables this active warrant permanently; it does not delete history or revive previously revoked authority.")}>Prepare warrant revocation <span>→</span></button>
-              </div>
+               </div>
+
+               <div className="authority-sections">
+                <section className="authority-section" aria-labelledby="authority-state-reads">
+                  <div className="authority-section-heading"><h4 id="authority-state-reads">Contract state reads</h4></div>
+                  <div className="field-grid two authority-lookup-grid">
+                    <label>Claim, attempt, warrant, or version ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Use the exact committed ID" maxLength={128} /></label>
+                  </div>
+                  <div className="authority-read-grid">
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress} onClick={() => void readCanonical("get_owner")}>Read contract owner</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_claim")}>Read claim</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_agent_version")}>Read version</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress} onClick={() => void readCanonical("get_agent_version_ids")}>Read version history</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_challenge")}>Read challenge</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_judgment")}>Read judgment</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_effective_authority")}>Read effective authority</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !versionId} onClick={() => void readCanonical("get_warrant_history")}>Read warrant history</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_warrant")}>Read warrant</button>
+                    <button className="action-button secondary" disabled={readBusy || !contractAddress || !queryId} onClick={() => void readCanonical("get_adapter_action")}>Read adapter action</button>
+                  </div>
+                </section>
+
+                <section className="authority-section" aria-labelledby="protected-adapter-action">
+                  <div className="authority-section-heading"><h4 id="protected-adapter-action">Protected adapter action</h4></div>
+                  <div className="field-grid two authority-control-grid">
+                    <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="refundbot-v1-live-…" maxLength={128} /></label>
+                    <label>Proposed refund amount<input inputMode="numeric" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} placeholder="600" /></label>
+                    <label>Single-use action nonce<input value={nonce} onChange={(e) => setNonce(e.target.value)} placeholder="refund-order-123" maxLength={128} /></label>
+                    <label>Authorized resource ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="Must match claim resource" maxLength={128} /></label>
+                    <label>Refund operation ID<input value={operationId} onChange={(e) => setOperationId(e.target.value)} placeholder="refund-op-2026-001" maxLength={128} /></label>
+                    <button className="action-button secondary" disabled={busy || !contractAddress || !account || !versionId || !resourceId || !operationId || !nonce || !/^[1-9]\d*$/.test(actionAmount) || (!!(consumer || account) && (consumer || account).toLowerCase() !== account.toLowerCase())} onClick={() => makeAction("Execute protected sandbox adapter action", "execute_sandbox_refund", [versionId, resourceId, operationId, BigInt(actionAmount), nonce, ""], "The contract checks current authority immediately before recording a bounded sandbox refund-service action. No funds move; above-$100 LIMIT actions require separate exact human approval.")}>Prepare adapter action <span>→</span></button>
+                  </div>
+                </section>
+
+                <section className="authority-section" aria-labelledby="limit-human-approval">
+                  <div className="authority-section-heading"><h4 id="limit-human-approval">LIMIT human approval</h4></div>
+                  <div className="field-grid two authority-control-grid">
+                    <label>Exact active LIMIT warrant ID<input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="Usually the attempt ID" maxLength={128} /></label>
+                    <label>Approval ID<input value={approvalId} onChange={(e) => setApprovalId(e.target.value)} placeholder="limit-approval-001" maxLength={128} /></label>
+                    <label>Approval expiry (ISO timestamp)<input value={approvalExpiry} onChange={(e) => setApprovalExpiry(e.target.value)} placeholder="2026-09-14T12:00:00+00:00" /></label>
+                    <label>Approval nonce<input value={approvalNonce} onChange={(e) => setApprovalNonce(e.target.value)} placeholder="unique-approval-nonce" maxLength={128} /></label>
+                    <button className="action-button secondary" disabled={busy || !contractAddress || !account || !queryId || !approvalId || !operationId || !approvalNonce || !approvalExpiry || !/^[1-9]\d*$/.test(actionAmount) || !approver || approver.toLowerCase() !== account.toLowerCase()} onClick={() => makeAction("Approve one exact above-LIMIT sandbox action", "approve_limit_override", [approvalId, queryId, operationId, BigInt(actionAmount), approvalNonce, approvalExpiry], "Only the claim-bound human approver can approve this exact operation and amount, for one use, until no later than warrant expiry.")}>Prepare human approval <span>→</span></button>
+                  </div>
+                </section>
+
+                <section className="authority-section" aria-labelledby="owner-controls">
+                  <div className="authority-section-heading"><h4 id="owner-controls">Owner controls</h4></div>
+                  <div className="field-grid two authority-control-grid authority-owner-grid">
+                    <label>Owner revocation reason<input value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} maxLength={128} /></label>
+                    <button className="action-button secondary" disabled={busy || !contractAddress || !account || !contractOwner || contractOwner.toLowerCase() !== account.toLowerCase() || !queryId || !revokeReason.trim()} onClick={() => makeAction("Revoke active warrant · owner only", "revoke_warrant", [queryId, revokeReason], "Owner revocation disables this active warrant permanently; it does not delete history or revive previously revoked authority.")}>Prepare warrant revocation <span>→</span></button>
+                  </div>
+                </section>
+               </div>
               {versionHistory.length > 0 && <section aria-label="Canonical agent version history" className="read-result">
                 <h4>Agent version history · {versionHistory.length} of {versionHistoryTotal}</h4>
                 <p>Every entry below is read from the deployed contract. Unknown or failed status reads are not treated as active.</p>

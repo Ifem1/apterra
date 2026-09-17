@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 // Browser smoke only: no injected wallet and no fake contract RPC are used.
 // This verifies the real UI remains closed until a reviewed deployment is configured.
 test("unconfigured deployment does not invent state or enable writes", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/underwriting");
   await expect(page.getByText("STUDIO DEV · 61997")).toBeVisible();
   await expect(page.getByText("Studio Dev deployment is not configured yet")).toBeVisible();
   await expect(page.getByRole("button", { name: /Prepare version registration/ })).toBeDisabled();
@@ -17,7 +17,7 @@ test("unconfigured deployment does not invent state or enable writes", async ({ 
 });
 
 test("challenge input evidence rejects oversized files without truncation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/evidence");
   await page.locator('input[type="file"]').setInputFiles({
     name: "oversized.json", mimeType: "application/json", buffer: Buffer.alloc(20_001, 65),
   });
@@ -47,7 +47,7 @@ test("a committed challenge preimage is recovered and remains identical after re
   });
   await page.addInitScript((encoded) => localStorage.setItem("apterra:studio-dev:challenge-draft:v1", encoded), draft);
 
-  await page.goto("/");
+  await page.goto("/underwriting");
   await expect(page.getByText("Restored the exact local challenge preimage and verified it against its commitment.")).toBeVisible();
   await expect(page.getByLabel("Challenge ID")).toHaveValue("challenge-recovery");
   await page.reload();
