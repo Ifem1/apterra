@@ -176,6 +176,39 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   const [challengeInputs, setChallengeInputs] = useState<ChallengeInput[]>([]);
   const [challengeAssignmentCommitted, setChallengeAssignmentCommitted] = useState(false);
   const [challengeInputsRevealed, setChallengeInputsRevealed] = useState(false);
+  const [registrationWarning, setRegistrationWarning] = useState("");
+  const [registrationSuccessId, setRegistrationSuccessId] = useState("");
+  const registrationValidationError = useMemo(() => {
+    const required = [
+      ["Version ID", versionId],
+      ["Agent reference", agentRef],
+      ["Model ID", modelId],
+      ["Provider / deployment ID", providerId],
+      ["Adapter ID", adapterId],
+      ["System-policy SHA-256", systemHash],
+      ["Tool-manifest SHA-256", toolsHash],
+      ["Runtime SHA-256", runtimeHash],
+      ["Harness version", harnessVersion],
+    ] as const;
+    const missing = required.find(([, value]) => !value.trim());
+    if (missing) return `${missing[0]} is required before preparing registration.`;
+    const hashes = [["System-policy SHA-256", systemHash], ["Tool-manifest SHA-256", toolsHash], ["Runtime SHA-256", runtimeHash]] as const;
+    const malformed = hashes.find(([, value]) => !/^[a-f0-9]{64}$/.test(value));
+    return malformed ? `${malformed[0]} must be 64 lowercase hexadecimal characters.` : "";
+  }, [adapterId, agentRef, harnessVersion, modelId, providerId, runtimeHash, systemHash, toolsHash, versionId]);
+
+  useEffect(() => {
+    if (!registrationWarning) return;
+    if (!registrationValidationError) setRegistrationWarning("");
+    else if (registrationWarning !== registrationValidationError) setRegistrationWarning(registrationValidationError);
+  }, [registrationValidationError, registrationWarning]);
+
+  useEffect(() => {
+    if (!registrationSuccessId) return;
+    const timer = window.setTimeout(() => setRegistrationSuccessId(""), 5600);
+    return () => window.clearTimeout(timer);
+  }, [registrationSuccessId]);
+
   const harnessCommand = useMemo(() => {
     try {
       return buildPowerShellHarnessCommand({ agent: harnessAgent, agentRef, versionId, providerId, executorId: executor || account || "", attemptId, claimId, challengeId });
@@ -422,10 +455,13 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       const quote = await prepareContractWrite(walletClient, contractAddress, action, provider ?? undefined);
       reviewReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setPrepared(quote);
+      if (action.functionName === "register_agent_version") setRegistrationWarning("");
       setNotice("Fee quote matches the configured Studio Dev profile. Review the exact action before signing.");
       setNoticeTone("good");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not prepare this write.");
+      const message = error instanceof Error ? error.message : "Could not prepare this write.";
+      if (action.functionName === "register_agent_version") setRegistrationWarning(message);
+      setNotice(message);
       setNoticeTone("warn");
     } finally { setBusy(false); }
   }, [account, contractAddress, provider, walletClient]);
@@ -480,6 +516,9 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         } catch (error) {
           readback = `READBACK_ERROR ${(error instanceof Error ? error.message : "canonical read failed").slice(0, 120)}`;
         }
+      }
+      if (summary.successful && current?.method === "register_agent_version" && current.readId && readback.startsWith("READBACK_MATCH get_agent_version ")) {
+        setRegistrationSuccessId(current.readId);
       }
       const next = pending.map((item) => item.hash === hash
         ? { ...item, status: `${summary.decision} · ${summary.finality}`.slice(0, 64), execution: summary.execution.slice(0, 128), lifecycle: summary.label.slice(0, 180), ...(readback ? { readback: readback.slice(0, 180) } : {}) }
@@ -553,11 +592,16 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy} title={walletError ?? undefined} aria-label={walletError ? `${walletError} Retry wallet connection` : undefined}>{account ? compact(account) : busy ? "Connecting…" : walletError?.startsWith("No injected") ? "Wallet unavailable" : walletError ? "Connection failed · retry" : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={disconnectWallet}>Disconnect</button></div>}</div></div>
       </header>
 
+      {registrationSuccessId && <aside className="registration-success-toast" role="status" aria-live="polite">
+        <div><strong>Agent version registered successfully</strong><p><code>{registrationSuccessId}</code> is now registered on Studio Dev.</p></div>
+        <button type="button" onClick={() => setRegistrationSuccessId("")} aria-label="Dismiss registration success">×</button>
+      </aside>}
+
       {view === "home" && <section className="hero" id="top">
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-line" /> AGENT AUTHORITY, UNDERWRITTEN</div>
-          <h1>Capability earns<br /><em>authority.</em></h1>
-          <p>Before an agent receives consequential permission, APTERRA asks it to prove what it can do — against a real policy, a committed challenge, and independent GenLayer judgment.</p>
+          <h1 className="hero-headline-reveal">Capability earns<br /><em>authority.</em></h1>
+          <p>Before an agent receives consequential permission, APTERRA asks it to prove what it can do against a real policy, a committed challenge, and independent GenLayer judgment.</p>
           <div className="hero-actions"><a className="primary-link" href="/underwriting">Open underwriting desk <span>↘</span></a><a className="text-link" href="#trust">Read the trust boundary</a></div>
         </div>
         <div className="hero-art" aria-label="Authority is granted through a four-stage underwriting lifecycle">
@@ -596,7 +640,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               <div className="panel-heading"><div><span className="step-number">01</span><h3>Register an agent version</h3></div><span className="tag">IMMUTABLE</span></div>
               <p className="panel-intro">Material changes create a new version. Registration identifies a configuration; it does not establish capability.</p>
               <div className="field-grid two">
-                <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="refundbot-v1" maxLength={128} /></label>
+                <label>Version ID<input value={versionId} onChange={(e) => setVersionId(e.target.value)} placeholder="unique-version-id" maxLength={128} /></label>
                 <label>Agent reference · disclosed runner identity<input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} placeholder="RefundBot v1 or RefundBot v2" maxLength={128} /><span className="role-hint">The sample runner binds its configuration identity in the evidence. It must exactly match the registered value and selected runner.</span></label>
                 <label>Model ID<input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="provider/model revision" maxLength={128} /></label>
                 <label>Provider / deployment ID<input value={providerId} onChange={(e) => setProviderId(e.target.value)} placeholder="provider and deployment revision" maxLength={128} /></label>
@@ -606,17 +650,27 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                 <label>Runtime SHA-256<input value={runtimeHash} onChange={(e) => setRuntimeHash(e.target.value)} placeholder="64 lowercase hex characters" maxLength={128} /></label>
                 <label>Harness version<input value={harnessVersion} onChange={(e) => setHarnessVersion(e.target.value)} maxLength={128} /></label>
               </div>
-              <button className="action-button" disabled={busy || !contractAddress || !account || [versionId, agentRef, modelId, providerId, adapterId, systemHash, toolsHash, runtimeHash, harnessVersion].some((value) => !value.trim())} onClick={() => makeAction("Register agent version", "register_agent_version", [versionId, agentRef, modelId, providerId, adapterId, systemHash, toolsHash, runtimeHash, harnessVersion], "A new immutable version record binds provider/deployment, model, adapter, policy, tools, runtime and harness to the connected operator.")}>Prepare version registration <span>→</span></button>
+              {registrationWarning && <div className="registration-warning" role="alert"><span className="registration-warning-mark">!</span><div><strong>Registration needs attention</strong><p>{registrationWarning}</p></div><button type="button" onClick={() => setRegistrationWarning("")} aria-label="Dismiss registration warning">×</button></div>}
+              <button className="action-button" disabled={busy || !contractAddress || !account} onClick={() => {
+                if (registrationValidationError) {
+                  setRegistrationWarning(registrationValidationError);
+                  setNotice(registrationValidationError);
+                  setNoticeTone("warn");
+                  return;
+                }
+                setRegistrationWarning("");
+                void makeAction("Register agent version", "register_agent_version", [versionId, agentRef, modelId, providerId, adapterId, systemHash, toolsHash, runtimeHash, harnessVersion], "A new immutable version record binds provider/deployment, model, adapter, policy, tools, runtime and harness to the connected operator.");
+              }}>Prepare version registration <span>→</span></button>
              </article>
 
             <article className="panel">
               <div className="panel-heading"><div><span className="step-number">02</span><h3>Create a capability claim</h3></div><span className="tag">REFUND · V4.2</span></div>
               <p className="panel-intro">The committed policy and risk hashes are fixed in the contract. The requested ceiling is not the granted ceiling.</p>
               <div className="field-grid three">
-                <label>Claim ID<input value={claimId} onChange={(e) => { setClaimId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="claim-2026-001" maxLength={128} /></label>
+                <label>Claim ID<input value={claimId} onChange={(e) => { setClaimId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="unique-claim-id" maxLength={128} /></label>
                 <label>Authorized consumer wallet<input value={consumer || account || ""} onChange={(e) => setConsumer(e.target.value)} placeholder="0x…" maxLength={42} /></label>
                 <label>Independent human approver wallet<input value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="0x… (must differ from consumer)" maxLength={42} /></label>
-                <label>Refund resource / order ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="refund-order-123" maxLength={128} /></label>
+                <label>Refund resource / order ID<input value={resourceId} onChange={(e) => setResourceId(e.target.value)} placeholder="resource-or-order-id" maxLength={128} /></label>
                 <label>Requested refund ceiling<input inputMode="numeric" value={requestedAmount} onChange={(e) => setRequestedAmount(e.target.value)} min="1" max="5000" /></label>
                 <label>Requested validity · days<input inputMode="numeric" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} min="1" max="90" /></label>
               </div>
@@ -630,9 +684,9 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
               <div className="panel-heading"><div><span className="step-number">03</span><h3>Commit challenge & attempt evidence</h3></div><span className="tag">ASSIGN BEFORE REVEAL</span></div>
               <p className="panel-intro">Challenge assignment is contract-owner-only. First commit a fresh per-session input digest; after transaction finality and canonical verification, separately reveal those exact inputs. No expected-action answer key is included.</p>
               <div className="field-grid two">
-                <label>Challenge ID<input value={challengeId} onChange={(e) => { setChallengeId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="refund-challenge-001" maxLength={128} /></label>
+                <label>Challenge ID<input value={challengeId} onChange={(e) => { setChallengeId(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="unique-challenge-id" maxLength={128} /></label>
                 <label>Evidence executor · address<input value={executor || account || ""} onChange={(e) => { setExecutor(e.target.value); setChallengeAssignmentCommitted(false); setChallengeInputsRevealed(false); }} placeholder="0x…" maxLength={42} /></label>
-                <label>Attempt ID<input value={attemptId} onChange={(e) => setAttemptId(e.target.value)} placeholder="attempt-001" maxLength={128} /></label>
+                <label>Attempt ID<input value={attemptId} onChange={(e) => setAttemptId(e.target.value)} placeholder="unique-attempt-id" maxLength={128} /></label>
                 <label>Disclosed harness adapter<select value={harnessAgent} onChange={(e) => setHarnessAgent(e.target.value as "refundbot-v1" | "refundbot-v2")}><option value="refundbot-v1">refundbot-v1</option><option value="refundbot-v2">refundbot-v2</option></select></label>
               </div>
               <div className="case-list">{["Routine eligible", "Clearly ineligible", "Ambiguous exception", "Adversarial override"].map((label, index) => <span key={label}><i>{String(index + 1).padStart(2, "0")}</i>{label}</span>)}</div>
