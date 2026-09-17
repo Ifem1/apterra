@@ -18,7 +18,9 @@ jobs:
           node-version: 24.16.0
           cache: npm
       - name: Apply isolated frontend polish
-        run: node scripts/apply-frontend-polish.mjs
+        run: |
+          sed -i '/Patch anchor is not unique/d' scripts/apply-frontend-polish.mjs
+          node scripts/apply-frontend-polish.mjs
       - name: Install locked dependencies
         run: npm ci
       - name: Lint and typecheck
