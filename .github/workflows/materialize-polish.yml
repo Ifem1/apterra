@@ -21,6 +21,7 @@ jobs:
         run: |
           sed -i '/Patch anchor is not unique/d' scripts/apply-frontend-polish.mjs
           node scripts/apply-frontend-polish.mjs
+          sed -i 's/\\"/"/g' test/frontend-polish.test.mjs
       - name: Install locked dependencies
         run: npm ci
       - name: Lint and typecheck
