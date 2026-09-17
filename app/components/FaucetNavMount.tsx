@@ -13,8 +13,7 @@ import {
 type FaucetUiState =
   | { kind: "ready" }
   | { kind: "sending" }
-  | { kind: "success"; txHash: string; remainingSeconds: number }
-  | { kind: "cooldown"; remainingSeconds: number; txHash?: string }
+  | { kind: "success"; txHash: string }
   | { kind: "failure"; message: string };
 
 type FaucetPayload = {
@@ -22,15 +21,7 @@ type FaucetPayload = {
   code?: string;
   message?: string;
   txHash?: string;
-  retryAfterSeconds?: number;
 };
-
-function cooldownLabel(seconds: number) {
-  const safe = Math.max(0, Math.ceil(seconds));
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.ceil((safe % 3600) / 60);
-  return `Available again in ${hours ? `${hours}h ` : ""}${minutes}m`;
-}
 
 export default function FaucetNavMount() {
   const [mount, setMount] = useState<Element | null>(null);
@@ -80,48 +71,12 @@ export default function FaucetNavMount() {
     };
   }, [syncWallet]);
 
-  const refreshStatus = useCallback(async (wallet: `0x${string}`) => {
-    try {
-      const response = await fetch(`/api/faucet?address=${encodeURIComponent(wallet)}`, { cache: "no-store" });
-      const payload = await response.json() as FaucetPayload;
-      if (payload.code === "COOLDOWN") {
-        setState({ kind: "cooldown", remainingSeconds: payload.retryAfterSeconds ?? 0, ...(payload.txHash ? { txHash: payload.txHash } : {}) });
-      } else if (payload.code === "IN_PROGRESS") {
-        setState({ kind: "sending" });
-        window.setTimeout(() => void refreshStatus(wallet), 3000);
-      } else if (response.ok) {
-        setState({ kind: "ready" });
-      } else {
-        setState({ kind: "failure", message: "Faucet temporarily unavailable. Try again later." });
-      }
-    } catch {
-      setState({ kind: "failure", message: "Faucet temporarily unavailable. Try again later." });
-    }
-  }, []);
-
   useEffect(() => {
-    if (!account || chainId !== APTERRA_NETWORK.chainIdHex) {
-      setState({ kind: "ready" });
-      return;
-    }
-    void refreshStatus(account);
-  }, [account, chainId, refreshStatus]);
-
-  useEffect(() => {
-    if (state.kind !== "cooldown" && state.kind !== "success") return;
-    const timer = window.setInterval(() => {
-      setState((current) => {
-        if (current.kind !== "cooldown" && current.kind !== "success") return current;
-        const remainingSeconds = Math.max(0, current.remainingSeconds - 60);
-        if (remainingSeconds === 0) return { kind: "ready" };
-        return { ...current, remainingSeconds };
-      });
-    }, 60_000);
-    return () => window.clearInterval(timer);
-  }, [state.kind]);
+    setState({ kind: "ready" });
+  }, [account, chainId]);
 
   const requestGen = useCallback(async () => {
-    if (!account || chainId !== APTERRA_NETWORK.chainIdHex || state.kind === "sending" || state.kind === "cooldown") return;
+    if (!account || chainId !== APTERRA_NETWORK.chainIdHex || state.kind === "sending" || state.kind === "success") return;
     setState({ kind: "sending" });
     try {
       const response = await fetch("/api/faucet", {
@@ -131,15 +86,8 @@ export default function FaucetNavMount() {
       });
       const payload = await response.json() as FaucetPayload;
       if (response.ok && payload.code === "SUCCESS" && payload.txHash) {
-        const remainingSeconds = payload.retryAfterSeconds ?? 48 * 60 * 60;
-        setState({ kind: "success", txHash: payload.txHash, remainingSeconds });
-        window.setTimeout(() => setState((current) => current.kind === "success"
-          ? { kind: "cooldown", remainingSeconds: current.remainingSeconds, txHash: current.txHash }
-          : current), 5000);
-        return;
-      }
-      if (payload.code === "COOLDOWN") {
-        setState({ kind: "cooldown", remainingSeconds: payload.retryAfterSeconds ?? 0, ...(payload.txHash ? { txHash: payload.txHash } : {}) });
+        setState({ kind: "success", txHash: payload.txHash });
+        window.setTimeout(() => setState((current) => current.kind === "success" ? { kind: "ready" } : current), 5000);
         return;
       }
       setState({ kind: "failure", message: "Faucet temporarily unavailable. Try again later." });
@@ -151,12 +99,11 @@ export default function FaucetNavMount() {
   if (!mount) return null;
 
   const wrongNetwork = Boolean(account && chainId !== APTERRA_NETWORK.chainIdHex);
-  const disabled = !account || wrongNetwork || state.kind === "sending" || state.kind === "cooldown";
+  const disabled = !account || wrongNetwork || state.kind === "sending" || state.kind === "success";
   const label = state.kind === "sending" ? "Sending..."
     : state.kind === "success" ? "1 test GEN sent"
-      : state.kind === "cooldown" ? cooldownLabel(state.remainingSeconds)
-        : "Get 1 test GEN";
-  const txHash = state.kind === "success" || state.kind === "cooldown" ? state.txHash : undefined;
+      : "Get 1 test GEN";
+  const txHash = state.kind === "success" ? state.txHash : undefined;
 
   return createPortal(
     <div className="faucet-control">
