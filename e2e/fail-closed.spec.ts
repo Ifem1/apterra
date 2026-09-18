@@ -12,7 +12,7 @@ test("unconfigured deployment does not invent state or enable writes", async ({ 
   await expect(page.getByText(/No effective authority/)).toHaveCount(0);
 
   await page.getByRole("button", { name: "Connect wallet" }).click();
-  await expect(page.getByRole("button", { name: /No injected EIP-1193 wallet was detected in this browser.*Retry wallet connection/ })).toHaveText("Wallet unavailable");
+  await expect(page.getByRole("button", { name: /No injected EIP-1193 wallet was detected.*injected-wallet\/dapp browser.*standard mobile browsers cannot sign.*Retry wallet connection/ })).toHaveText("Wallet unavailable");
   await expect(page.getByText("No effective authority")).toHaveCount(0);
 });
 

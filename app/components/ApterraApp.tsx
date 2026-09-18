@@ -204,12 +204,6 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
   }, [registrationValidationError, registrationWarning]);
 
   useEffect(() => {
-    if (!registrationSuccessId) return;
-    const timer = window.setTimeout(() => setRegistrationSuccessId(""), 5600);
-    return () => window.clearTimeout(timer);
-  }, [registrationSuccessId]);
-
-  useEffect(() => {
     if (registrationSuccessId && registrationSuccessId !== versionId) setRegistrationSuccessId("");
   }, [registrationSuccessId, versionId]);
 
@@ -229,9 +223,6 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
     } catch { setContractOwner(null); }
   }, [contractAddress]);
   const isOwner = Boolean(account && contractOwner && account.toLowerCase() === contractOwner.toLowerCase());
-  const isExecutor = false;
-  const isApprover = false;
-  const isConsumer = false;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("apterra:theme") as ThemePreference | null;
@@ -315,7 +306,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
 
   const connectWallet = useCallback(async () => {
     if (!provider) {
-      setWalletError("No injected EIP-1193 wallet was detected in this browser.");
+      setWalletError("No injected EIP-1193 wallet was detected. On mobile, open APTERRA inside an injected-wallet/dapp browser; standard mobile browsers cannot sign.");
       return;
     }
     setBusy(true);
@@ -452,6 +443,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       setNoticeTone("warn");
       return;
     }
+    if (action.functionName === "register_agent_version") setRegistrationSuccessId("");
     setBusy(true);
     setPrepared(null);
     try {
@@ -470,36 +462,13 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
     } finally { setBusy(false); }
   }, [account, contractAddress, provider, walletClient]);
 
-  const submitPrepared = useCallback(async () => {
-    if (!prepared || !walletClient || !account || !contractAddress || !provider) return;
+  const trackPendingEntry = useCallback(async (current: PendingTransaction, sourceItems: PendingTransaction[]) => {
     setBusy(true);
     try {
-      await assertWalletIdentity(provider, account);
-      const hash = await submitPreparedWrite(walletClient, contractAddress, prepared);
-      const target = readbackTarget(prepared.action.functionName, prepared.action.args);
-      const entry: PendingTransaction = { hash: String(hash), method: prepared.action.functionName, status: "SUBMITTED", ...(
-        target ? { readMethod: target.method, readId: target.id } : {}
-      ) };
-      const updated = [entry, ...pending.filter((item) => item.hash !== entry.hash)];
-      setPending(updated);
-      const persisted = persistPending(updated);
-      setPrepared(null);
-      setNotice(`Submitted ${entry.method}. Tracking the same transaction hash; no automatic retry will be sent.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
-      setNoticeTone(persisted ? "good" : "warn");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Wallet signing or submission failed.");
-      setNoticeTone("warn");
-    } finally { setBusy(false); }
-  }, [account, contractAddress, pending, prepared, provider, walletClient]);
-
-  const trackTransaction = useCallback(async (hash: string) => {
-    setBusy(true);
-    try {
-      const transaction = await readClient.waitForFinalization({ hash: hash as never, interval: 3000, retries: 10 });
+      const transaction = await readClient.waitForFinalization({ hash: current.hash as never, interval: 3000, retries: 10 });
       const summary = summarizeTransactionLifecycle(transaction);
-      const current = pending.find((item) => item.hash === hash);
       let readback = "";
-      if (summary.successful && current?.readMethod && current.readId) {
+      if (summary.successful && current.readMethod && current.readId) {
         try {
           const result = await readClient.readContract({
             address: contractAddress as `0x${string}`,
@@ -521,23 +490,83 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
           readback = `READBACK_ERROR ${(error instanceof Error ? error.message : "canonical read failed").slice(0, 120)}`;
         }
       }
-      if (summary.successful && current?.method === "register_agent_version" && current.readId && readback.startsWith("READBACK_MATCH get_agent_version ")) {
+
+      const readbackRequired = Boolean(current.readMethod && current.readId);
+      const readbackMatched = !readbackRequired || Boolean(
+        current.readMethod && current.readId
+        && readback.startsWith(`READBACK_MATCH ${current.readMethod} ${current.readId}`)
+      );
+      const confirmed = summary.successful && readbackMatched;
+
+      if (
+        confirmed
+        && current.method === "register_agent_version"
+        && current.readMethod === "get_agent_version"
+        && current.readId
+      ) {
         setRegistrationSuccessId(current.readId);
       }
-      const next = pending.map((item) => item.hash === hash
+
+      const next = sourceItems.map((item) => item.hash === current.hash
         ? { ...item, status: `${summary.decision} · ${summary.finality}`.slice(0, 64), execution: summary.execution.slice(0, 128), lifecycle: summary.label.slice(0, 180), ...(readback ? { readback: readback.slice(0, 180) } : {}) }
         : item);
       setPending(next);
       const persisted = persistPending(next);
-       const successMessage = current?.method === "register_agent_version" ? "Agent version registered successfully." : current?.method === "create_claim" ? "Capability claim created successfully." : current?.method === "submit_attempt" ? "Evidence submitted successfully." : current?.method === "underwrite_attempt" ? "Underwriting completed successfully." : "Transaction completed successfully.";
-       setNotice(`${summary.successful ? `${successMessage} ${readback || "Canonical state finalized."}` : `Transaction failed: ${summary.label}. Do not infer a state change or retry without checking the same hash.`}${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
-      setNoticeTone(summary.successful && persisted ? "good" : "warn");
+
+      const successMessage = current.method === "register_agent_version" ? "Agent version registered successfully."
+        : current.method === "create_claim" ? "Capability claim created successfully."
+        : current.method === "submit_attempt" ? "Evidence submitted successfully."
+        : current.method === "underwrite_attempt" ? "Underwriting completed successfully."
+        : "Transaction completed successfully.";
+
+      if (confirmed) {
+        setNotice(`${successMessage} ${readback || "Canonical state finalized."}${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+        setNoticeTone(persisted ? "good" : "warn");
+      } else if (summary.successful && readbackRequired) {
+        setNotice(`Transaction finalized successfully, but canonical readback was not verified: ${readback || "readback unavailable"}. Do not treat the state change as confirmed.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+        setNoticeTone("warn");
+      } else {
+        setNotice(`Transaction failed: ${summary.label}. Do not infer a state change or retry without checking the same hash.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+        setNoticeTone("warn");
+      }
     } catch (error) {
       setNotice(`Tracking did not reach finality. The transaction remains saved; query the same hash before taking any further action. ${error instanceof Error ? error.message : ""}`);
       setNoticeTone("warn");
     } finally { setBusy(false); }
-  }, [contractAddress, pending]);
+  }, [contractAddress]);
 
+  const submitPrepared = useCallback(async () => {
+    if (!prepared || !walletClient || !account || !contractAddress || !provider) return;
+    setBusy(true);
+    try {
+      await assertWalletIdentity(provider, account);
+      const hash = await submitPreparedWrite(walletClient, contractAddress, prepared);
+      const target = readbackTarget(prepared.action.functionName, prepared.action.args);
+      const entry: PendingTransaction = { hash: String(hash), method: prepared.action.functionName, status: "SUBMITTED", ...(
+        target ? { readMethod: target.method, readId: target.id } : {}
+      ) };
+      const updated = [entry, ...pending.filter((item) => item.hash !== entry.hash)];
+      setPending(updated);
+      const persisted = persistPending(updated);
+      setPrepared(null);
+      setNotice(`Submitted ${entry.method}. Tracking the same transaction hash to finality; no automatic retry or resubmission will be sent.${persisted ? "" : " Browser storage is unavailable, so tracking is in memory only."}`);
+      setNoticeTone(persisted ? "good" : "warn");
+      await trackPendingEntry(entry, updated);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Wallet signing or submission failed.");
+      setNoticeTone("warn");
+    } finally { setBusy(false); }
+  }, [account, contractAddress, pending, prepared, provider, trackPendingEntry, walletClient]);
+
+  const trackTransaction = useCallback(async (hash: string) => {
+    const current = pending.find((item) => item.hash === hash);
+    if (!current) {
+      setNotice("That transaction hash is not available in this browser session. Use the saved Receipt & finality record before taking further action.");
+      setNoticeTone("warn");
+      return;
+    }
+    await trackPendingEntry(current, pending);
+  }, [pending, trackPendingEntry]);
   const trackDecision = useCallback(async (hash: string) => {
     setBusy(true);
     try {
@@ -593,7 +622,7 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
       <header className="topbar">
         <Link className="brand" href="/" aria-label="APTERRA home"><span className="brand-mark">A</span><span>APTERRA</span></Link>
         <nav aria-label="Primary navigation"><a href="/underwriting" aria-current={view === "underwriting" ? "page" : undefined}>Underwriting</a><a href="/evidence" aria-current={view === "evidence" ? "page" : undefined}>Evidence</a><a href="/authority" aria-current={view === "authority" ? "page" : undefined}>Authority</a>{isOwner && <a href="/admin" aria-current={view === "admin" ? "page" : undefined}>Admin</a>}</nav>
-        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy} title={walletError ?? undefined} aria-label={walletError ? `${walletError} Retry wallet connection` : undefined}>{account ? compact(account) : busy ? "Connecting…" : walletError?.startsWith("No injected") ? "Wallet unavailable" : walletError ? "Connection failed · retry" : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={disconnectWallet}>Disconnect</button></div>}</div></div>
+        <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && isOwner && <span className="role-label">Steward</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy} title={walletError ?? undefined} aria-label={walletError ? `${walletError} Retry wallet connection` : undefined}>{account ? compact(account) : busy ? "Connecting…" : walletError?.startsWith("No injected") ? "Wallet unavailable" : walletError ? "Connection failed · retry" : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={disconnectWallet}>Disconnect</button></div>}</div></div>
       </header>
 
       {view === "home" && <section className="hero" id="top">
