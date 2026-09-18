@@ -8,6 +8,7 @@ import {
   connectWalletSession,
   disconnectedWalletState,
   isManualDisconnect,
+  isUnknownChainError,
   markManualDisconnect,
   normalizeWalletAccounts,
   restoreWalletSession,
@@ -49,6 +50,179 @@ test("connection success requests accounts, switches to Studio Dev, and returns 
   assert.equal(calls[0], "eth_requestAccounts");
   assert.ok(calls.includes("wallet_switchEthereumChain"));
   assert.equal(calls.at(-1), "eth_chainId");
+});
+
+test("fresh wallet already on Studio Dev skips add and switch and verifies the approved account", async () => {
+  const calls = [];
+  const provider = {
+    request: async ({ method }) => {
+      calls.push(method);
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return APTERRA_NETWORK.chainIdHex;
+      if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") {
+        throw new Error("network mutation should not be requested");
+      }
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  const result = await connectWalletSession(provider);
+  assert.deepEqual(result, {
+    session: { account: ACCOUNT_A, chainId: APTERRA_NETWORK.chainIdHex },
+    error: null,
+  });
+  assert.equal(calls.includes("wallet_switchEthereumChain"), false);
+  assert.equal(calls.includes("wallet_addEthereumChain"), false);
+  assert.deepEqual(calls, ["eth_requestAccounts", "eth_chainId", "eth_chainId", "eth_accounts", "eth_chainId"]);
+});
+
+test("direct numeric 4902 unknown-chain error falls back to adding Studio Dev", async () => {
+  let chainId = "0x1";
+  let switchCalls = 0;
+  let addCalls = 0;
+  const provider = {
+    request: async ({ method }) => {
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return chainId;
+      if (method === "wallet_switchEthereumChain") {
+        switchCalls += 1;
+        if (switchCalls === 1) throw { code: 4902, message: "Unrecognized chain ID" };
+        chainId = APTERRA_NETWORK.chainIdHex;
+        return null;
+      }
+      if (method === "wallet_addEthereumChain") { addCalls += 1; return null; }
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  const result = await connectWalletSession(provider);
+  assert.equal(isUnknownChainError({ code: 4902 }), true);
+  assert.equal(addCalls, 1);
+  assert.equal(switchCalls, 2);
+  assert.deepEqual(result, {
+    session: { account: ACCOUNT_A, chainId: APTERRA_NETWORK.chainIdHex },
+    error: null,
+  });
+});
+
+test("wrapped Rabby-style nested 4902 unknown-chain error falls back to adding Studio Dev", async () => {
+  let chainId = "0x1";
+  let switchCalls = 0;
+  let addCalls = 0;
+  const wrappedError = {
+    code: -32603,
+    message: "Internal JSON-RPC error.",
+    data: {
+      originalError: {
+        code: 4902,
+        message: "Unrecognized chain ID",
+      },
+    },
+  };
+  const provider = {
+    request: async ({ method }) => {
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return chainId;
+      if (method === "wallet_switchEthereumChain") {
+        switchCalls += 1;
+        if (switchCalls === 1) throw wrappedError;
+        chainId = APTERRA_NETWORK.chainIdHex;
+        return null;
+      }
+      if (method === "wallet_addEthereumChain") { addCalls += 1; return null; }
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  assert.equal(isUnknownChainError(wrappedError), true);
+  assert.equal(isUnknownChainError({ code: -32603, data: { cause: { code: "4902" } } }), true);
+  assert.equal(isUnknownChainError({ code: 4001, message: "User rejected" }), false);
+
+  const result = await connectWalletSession(provider);
+  assert.equal(addCalls, 1);
+  assert.equal(switchCalls, 2);
+  assert.deepEqual(result, {
+    session: { account: ACCOUNT_A, chainId: APTERRA_NETWORK.chainIdHex },
+    error: null,
+  });
+});
+
+test("wallet_addEthereumChain uses the exact Studio Dev parameters before the verified switch", async () => {
+  let chainId = "0x1";
+  let switchCalls = 0;
+  const calls = [];
+  const provider = {
+    request: async ({ method, params }) => {
+      calls.push({ method, params });
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return chainId;
+      if (method === "wallet_switchEthereumChain") {
+        switchCalls += 1;
+        if (switchCalls === 1) throw { data: { code: 4902 } };
+        chainId = APTERRA_NETWORK.chainIdHex;
+        return null;
+      }
+      if (method === "wallet_addEthereumChain") return null;
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  const result = await connectWalletSession(provider);
+  const addCall = calls.find(({ method }) => method === "wallet_addEthereumChain");
+  assert.deepEqual(addCall?.params, [{
+    chainId: "0xf22d",
+    chainName: "GenLayer Studio Dev preview",
+    nativeCurrency: { name: "GenLayer GEN", symbol: "GEN", decimals: 18 },
+    rpcUrls: ["https://studio-dev.genlayer.com/api"],
+    blockExplorerUrls: ["https://explorer-studio-dev.genlayer.com"],
+  }]);
+  assert.deepEqual(result, {
+    session: { account: ACCOUNT_A, chainId: APTERRA_NETWORK.chainIdHex },
+    error: null,
+  });
+});
+
+test("user rejecting network add or switch leaves no connected session and preserves the wallet error", async () => {
+  let switchCalls = 0;
+  const provider = {
+    request: async ({ method }) => {
+      if (method === "eth_requestAccounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return "0x1";
+      if (method === "wallet_switchEthereumChain") {
+        switchCalls += 1;
+        throw switchCalls === 1
+          ? { code: 4902, message: "Unknown chain" }
+          : { code: 4001, message: "User rejected network switch" };
+      }
+      if (method === "wallet_addEthereumChain") {
+        throw { code: 4001, message: "User rejected network add" };
+      }
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  const result = await connectWalletSession(provider);
+  assert.equal(result.session, null);
+  assert.equal(result.error, "User rejected network add");
+  assert.deepEqual(disconnectedWalletState(), { account: null, chainId: null });
+});
+
+test("final chain verification fails closed if the wallet still is not on Studio Dev", async () => {
+  let accountReads = 0;
+  const provider = {
+    request: async ({ method }) => {
+      if (method === "eth_requestAccounts") return [ACCOUNT_A];
+      if (method === "eth_chainId") return "0x1";
+      if (method === "wallet_switchEthereumChain") return null;
+      if (method === "eth_accounts") { accountReads += 1; return [ACCOUNT_A]; }
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+
+  const result = await connectWalletSession(provider);
+  assert.equal(result.session, null);
+  assert.match(result.error, /Wrong wallet network.*61997/);
+  assert.equal(accountReads, 0);
 });
 
 test("connection failure returns no session or account state", async () => {

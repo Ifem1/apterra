@@ -40,6 +40,43 @@ export type WalletStorage = {
   removeItem(key: string): void;
 };
 
+const WALLET_ERROR_CONTAINER_KEYS = ["data", "cause", "error", "originalError", "innerError"] as const;
+
+function walletErrorRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : null;
+}
+
+function inspectWalletError(
+  value: unknown,
+  predicate: (record: Record<string, unknown>) => boolean,
+  depth = 0,
+  seen = new Set<object>(),
+): boolean {
+  const record = walletErrorRecord(value);
+  if (!record || depth > 6 || seen.has(record)) return false;
+  seen.add(record);
+  if (predicate(record)) return true;
+  return WALLET_ERROR_CONTAINER_KEYS.some((key) => inspectWalletError(record[key], predicate, depth + 1, seen));
+}
+
+export function isUnknownChainError(error: unknown): boolean {
+  return inspectWalletError(error, (record) => record.code === 4902 || record.code === "4902");
+}
+
+function walletErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+
+  let message: string | null = null;
+  inspectWalletError(error, (record) => {
+    if (typeof record.message === "string" && record.message.trim()) {
+      message = record.message;
+      return true;
+    }
+    return false;
+  });
+  return message ?? "Wallet connection failed.";
+}
+
 export function normalizeWalletAccounts(value: unknown): `0x${string}` | null {
   return Array.isArray(value) && typeof value[0] === "string" && /^0x[a-fA-F0-9]{40}$/.test(value[0])
     ? value[0] as `0x${string}`
@@ -96,29 +133,29 @@ export async function assertWalletIdentity(provider: WalletProvider, expected: `
 
 async function switchAndVerifyStudioDev(provider: WalletProvider): Promise<string> {
   const current = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
-  if (current === APTERRA_NETWORK.chainIdHex) return current;
-
-  try {
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
-    });
-  } catch (error) {
-    if ((error as { code?: number })?.code !== 4902) throw error;
-    await provider.request({
-      method: "wallet_addEthereumChain",
-      params: [{
-        chainId: APTERRA_NETWORK.chainIdHex,
-        chainName: APTERRA_NETWORK.name,
-        nativeCurrency: { name: "GenLayer GEN", symbol: "GEN", decimals: 18 },
-        rpcUrls: [APTERRA_NETWORK.rpc],
-        blockExplorerUrls: [APTERRA_NETWORK.explorer],
-      }],
-    });
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
-    });
+  if (current !== APTERRA_NETWORK.chainIdHex) {
+    try {
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
+      });
+    } catch (error) {
+      if (!isUnknownChainError(error)) throw error;
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: APTERRA_NETWORK.chainIdHex,
+          chainName: APTERRA_NETWORK.name,
+          nativeCurrency: { name: "GenLayer GEN", symbol: "GEN", decimals: 18 },
+          rpcUrls: [APTERRA_NETWORK.rpc],
+          blockExplorerUrls: [APTERRA_NETWORK.explorer],
+        }],
+      });
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: APTERRA_NETWORK.chainIdHex }],
+      });
+    }
   }
 
   const finalChainId = normalizeWalletChainId(await provider.request({ method: "eth_chainId" }));
@@ -153,7 +190,7 @@ export async function connectWalletSession(provider: WalletProvider): Promise<Wa
     if (browserStorage && !preserveManualDisconnect) clearManualDisconnect(browserStorage);
     return {
       session: null,
-      error: error instanceof Error ? error.message : "Wallet connection failed.",
+      error: walletErrorMessage(error),
     };
   }
 }
