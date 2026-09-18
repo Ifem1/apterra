@@ -209,6 +209,10 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
     return () => window.clearTimeout(timer);
   }, [registrationSuccessId]);
 
+  useEffect(() => {
+    if (registrationSuccessId && registrationSuccessId !== versionId) setRegistrationSuccessId("");
+  }, [registrationSuccessId, versionId]);
+
   const harnessCommand = useMemo(() => {
     try {
       return buildPowerShellHarnessCommand({ agent: harnessAgent, agentRef, versionId, providerId, executorId: executor || account || "", attemptId, claimId, challengeId });
@@ -592,11 +596,6 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
         <div className="top-actions"><span className="network-pill"><i />{walletChainId && walletChainId !== APTERRA_NETWORK.chainIdHex ? ` WRONG NETWORK · ${walletChainId}` : " STUDIO DEV · 61997"}</span>{account && <span className="role-label">{isOwner ? "Steward" : isExecutor ? "Executor" : isApprover ? "Approver" : isConsumer ? "Consumer" : "Reviewer"}</span>}<label className="theme-control">Theme<select aria-label="Theme preference" value={theme} onChange={(event) => setTheme(event.target.value as ThemePreference)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><div className="wallet-menu"><button className="wallet-button" onClick={() => account ? setWalletMenuOpen((open) => !open) : void connectWallet()} disabled={busy} title={walletError ?? undefined} aria-label={walletError ? `${walletError} Retry wallet connection` : undefined}>{account ? compact(account) : busy ? "Connecting…" : walletError?.startsWith("No injected") ? "Wallet unavailable" : walletError ? "Connection failed · retry" : "Connect wallet"}</button>{walletMenuOpen && account && <div className="wallet-popover"><button onClick={() => { void navigator.clipboard?.writeText(account); setCopiedAddress(true); setTimeout(() => setCopiedAddress(false), 1500); }}>{copiedAddress ? "Address copied" : "Copy address"}</button><button onClick={disconnectWallet}>Disconnect</button></div>}</div></div>
       </header>
 
-      {registrationSuccessId && <aside className="registration-success-toast" role="status" aria-live="polite">
-        <div><strong>Agent version registered successfully</strong><p><code>{registrationSuccessId}</code> is now registered on Studio Dev.</p></div>
-        <button type="button" onClick={() => setRegistrationSuccessId("")} aria-label="Dismiss registration success">×</button>
-      </aside>}
-
       {view === "home" && <section className="hero" id="top">
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-line" /> AGENT AUTHORITY, UNDERWRITTEN</div>
@@ -651,6 +650,10 @@ export default function ApterraApp({ view }: { view: ApterraView }) {
                 <label>Harness version<input value={harnessVersion} onChange={(e) => setHarnessVersion(e.target.value)} maxLength={128} /></label>
               </div>
               {registrationWarning && <div className="registration-warning" role="alert"><span className="registration-warning-mark">!</span><div><strong>Registration needs attention</strong><p>{registrationWarning}</p></div><button type="button" onClick={() => setRegistrationWarning("")} aria-label="Dismiss registration warning">×</button></div>}
+              {registrationSuccessId && <div className="registration-success" role="status" aria-live="polite">
+                <div><strong>Agent version registered successfully</strong><p><code>{registrationSuccessId}</code> is now recorded on Studio Dev.</p></div>
+                <button type="button" onClick={() => setRegistrationSuccessId("")} aria-label="Dismiss registration success">×</button>
+              </div>}
               <button className="action-button" disabled={busy || !contractAddress || !account} onClick={() => {
                 if (registrationValidationError) {
                   setRegistrationWarning(registrationValidationError);
