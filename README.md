@@ -64,7 +64,7 @@ GenLayer returns bounded findings such as evidence state, policy integrity, adve
 Warrants are version-bound, expiring and revocable. Ceilings, consumer/resource scope, suspended versions and replay-safe one-use nonces are enforced. Above-LIMIT actions require exact independent-approver consent where supported; approval cannot upgrade DENY. The protected sandbox records a decision but moves no real funds.
 
 ## Application
-`/` presents the thesis and live result; `/underwriting` handles version, claim and challenge; `/evidence` handles revealed context, harness command, upload and submission; `/authority` handles judgment, warrants, approvals and sandbox enforcement. Injected-wallet identity and chain-61997 checks fail closed; transaction review, fee-policy verification, canonical reads and finality tracking are explicit.
+`/` presents the thesis and live result; `/underwriting` handles version, claim and challenge; `/evidence` handles revealed context, harness command, upload and submission; `/authority` handles judgment, warrants, approvals and sandbox enforcement. Injected EIP-1193 wallet identity and chain-61997 checks fail closed; transaction review, fee-policy verification, canonical reads and same-hash finality tracking are explicit. Standard mobile browsers without an injected provider cannot sign; mobile users must open APTERRA inside an injected-wallet/dapp browser.
 
 ## Contract surface
 Writes (11): `register_agent_version`, `create_claim`, `assign_challenge`, `reveal_challenge_inputs`, `submit_attempt`, `underwrite_attempt`, `consume_authority`, `approve_limit_override`, `execute_sandbox_refund`, `suspend_agent_version`, `revoke_warrant`.
@@ -75,7 +75,7 @@ Reads (14): `get_effective_authority`, `get_claim`, `get_attempt`, `get_judgment
 Exact-version binding; immutable policy/risk/rubric commitments; role separation; challenge-before-reveal; strict schema/hash validation; deterministic ceilings; expiry; consumer/resource checks; one-use nonces; replay protection; revocation; suspension; and fail-closed uncertainty.
 
 ## Testing and verification
-Current verified counts are 15 frontend tests, 58 direct Python tests, 3/3 CI browser smoke cases, GenVM lint/SDK validation, schema extraction of 25 methods (14 reads/11 writes), SDK typecheck, lint/typecheck and production build. Windows Playwright exit behavior is documented as a tooling limitation, not consensus evidence. See [TESTING](docs/TESTING.md) and [TOOLCHAIN](docs/TOOLCHAIN.md).
+Current CI verification passes **43/43 deterministic frontend tests**, **63/63 direct Python tests**, **3/3 Chromium smoke cases**, Studio Dev guard + ESLint + TypeScript, production build, GenVM lint (**3/3 lint checks + SDK validation**), SDK typecheck, and schema extraction of **25 methods (14 reads/11 writes)**. This automated coverage is not live consensus proof. See [TESTING](docs/TESTING.md) and [TOOLCHAIN](docs/TOOLCHAIN.md).
 
 ## Scope and boundaries
 Phase 1 is the refund-policy vertical. It does not transfer real payments, provide TEE attestation, claim universal safety, or claim live v2 execution. v2 was not executed and is not required for this submission. Studio Dev/Studio Next is a preview and may reset.
@@ -84,7 +84,7 @@ Phase 1 is the refund-policy vertical. It does not transfer real payments, provi
 `contracts/` contract; `app/` Next.js console; `harness/` disclosed runner and fixtures; `test/` tests; `deploy/` guarded helpers; `scripts/` tooling; `docs/` specifications and evidence.
 
 ## Local development
-Use the pinned `package-lock.json` and `requirements-ci.txt`. Run `npm ci`, `npm run lint`, `npm run test:frontend`, `npm run build`, `python -m pytest -q --tb=short`, `genvm-lint check contracts/apterra.py --json`, `genvm-lint typecheck contracts/apterra.py`, and `genvm-lint schema contracts/apterra.py --json`.
+Use the pinned `package-lock.json` and `requirements-ci.txt`. Run `npm ci`, `npm run lint`, `npm run test:frontend`, `npm run test:e2e`, `npm run build`, `python -m pytest -q --tb=short`, `genvm-lint check contracts/apterra.py --json`, `genvm-lint typecheck contracts/apterra.py`, and `genvm-lint schema contracts/apterra.py --json`.
 
 ## Studio Next deployment
 Contract `0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060` · [Explorer](https://explorer-studio-dev.genlayer.com/address/0xfDB7f4C28F157662133dF51B5a864BDa3F4B7060) · tx `0x1c1224b09c0c662de124c2a08b8b351049dc5f883af582e7edc8cf5723509b20` · [frontend](https://apterra.vercel.app/)

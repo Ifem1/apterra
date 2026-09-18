@@ -1,6 +1,8 @@
 # Gate 0 — Foundation / Studio Dev Environment
 
-**Status: PARTIAL.** The pinned RC tooling and Windows direct-mode path are operational. Contract validation/schema/direct tests have passed on the working implementation. The required Studio Dev deployment/read/write/finality smoke is not run: there is no APTERRA contract address or deployment transaction, and the owner must inspect/sign the exact live deployment proposal before submission.
+> **Historical pre-deployment checkpoint.** This report preserves the state before APTERRA's canonical Studio Dev deployment and public frontend. Current deployment/lifecycle evidence is in [LIVE_EVIDENCE](LIVE_EVIDENCE.md) and [REQUIREMENTS_MATRIX](REQUIREMENTS_MATRIX.md).
+
+**Historical status at this checkpoint: PARTIAL.** The pinned RC tooling and Windows direct-mode path are operational. Contract validation/schema/direct tests have passed on the working implementation. The required Studio Dev deployment/read/write/finality smoke is not run: there is no APTERRA contract address or deployment transaction, and the owner must inspect/sign the exact live deployment proposal before submission.
 
 ## Pinned environment
 
@@ -40,7 +42,7 @@ At schema-v3 code commit `72f89d48e8f0f921a0b87d8c506bb9cc40bb8ea2`, the exact c
 
 On 2026-09-14 the project-local CLI (`node_modules/.bin/genlayer.cmd`, version `0.40.0-rc.3`) reported active `studio-dev`, chain `61997`, and RPC `https://studio-dev.genlayer.com/api`; a read-only JSON-RPC `eth_chainId` request to that endpoint returned `0xf22d`. In this continuation, CLI `network info` repeated the expected endpoint/chain and CLI account list showed the existing `redress-deployer` active and unlocked. The 200 GEN balance was read at an earlier checkpoint on that date and was not refreshed here; no key was read or exported. Re-read `eth_chainId`, current balance, and operation-specific fee quote immediately before any later deployment/write session.
 
-Current application source candidate: `72f89d48e8f0f921a0b87d8c506bb9cc40bb8ea2`. The fresh Windows clone at `apterra-verify-final-53973ce-20260914`, fast-forwarded to that exact code commit, passed `npm ci` (503 locked packages), lint/typecheck, **15 frontend tests**, production build, **58 direct tests in 27.05s**, GenVM check (3 lint checks + SDK validation), SDK typecheck, and schema (25 methods: 14 views, 11 writes). GitHub Actions run [34855094116](https://github.com/Ifem1/apterra/actions/runs/34855094116) passed all workflow steps and all 3 browser smoke cases. The local Playwright process reported its cases but did not exit cleanly. Local GenVM commands emitted Windows `WinError 10013` during latest-release metadata lookup and used the explicitly pinned RC5 cache. Current source hashes are in [TOOLCHAIN](TOOLCHAIN.md). There is no deployment proposal, fresh fee quote, or signature request because the artifact is not yet product-complete and owner approval is required.
+Historical application source candidate: `72f89d48e8f0f921a0b87d8c506bb9cc40bb8ea2`. The fresh Windows clone at `apterra-verify-final-53973ce-20260914`, fast-forwarded to that exact code commit, passed `npm ci` (503 locked packages), lint/typecheck, **15 frontend tests**, production build, **58 direct tests in 27.05s**, GenVM check (3 lint checks + SDK validation), SDK typecheck, and schema (25 methods: 14 views, 11 writes). GitHub Actions run [34855094116](https://github.com/Ifem1/apterra/actions/runs/34855094116) passed all workflow steps and all 3 browser smoke cases. The local Playwright process reported its cases but did not exit cleanly. Local GenVM commands emitted Windows `WinError 10013` during latest-release metadata lookup and used the explicitly pinned RC5 cache. Current source hashes are in [TOOLCHAIN](TOOLCHAIN.md). There is no deployment proposal, fresh fee quote, or signature request because the artifact is not yet product-complete and owner approval is required.
 
 | Gate 0 action | Result |
 |---|---|
@@ -56,4 +58,4 @@ No wallet key was accessed, printed, committed or transmitted. No deployment/wri
 
 ## Gate decision
 
-Gate 0 is not complete until final-source lint/schema/direct tests pass, the exact deployment proposal is reviewed and signed by the owner, and the same Studio Dev deployment transaction reaches finality with `FINISHED_WITH_RETURN` plus canonical source/schema/readback verification. The requirements ledger is authoritative for current overall status.
+This gate decision applied to the pre-deployment checkpoint above. The canonical Studio Dev deployment and later live v1 lifecycle now supersede its deployment-status gaps; the requirements ledger and live-evidence record are authoritative for current status.

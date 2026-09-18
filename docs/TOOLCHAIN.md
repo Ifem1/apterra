@@ -7,13 +7,13 @@ The only supported live environment is the Agent Tank GenLayer Studio Dev previe
 | GenLayer CLI | `genlayer@0.40.0-rc.3` | Project-local dependency in `package.json`/lock; invoke `node_modules/.bin/genlayer.cmd` on Windows, never the broken global executable |
 | GenLayer JS SDK | `genlayer-js@2.0.0-rc.1` | Exact lock pin; `studioDevnet` import in `src/lib/network.ts` |
 | GenLayer Python SDK | `genlayer-py==0.19.0rc2` | Installed and pinned in `requirements-ci.txt` |
-| Direct test runner | `genlayer-test==0.30.0rc2` | Installed and pinned; schema-v3 contract-source run: 58 direct tests passed in the clean Windows clone |
+| Direct test runner | `genlayer-test==0.30.0rc2` | Installed and pinned; current CI direct suite passes 63/63 |
 | GenVM linter | `genvm-linter==0.11.1rc2` | Installed and pinned; `check`, schema, and typecheck pass against the RC5 cache |
 | GenVM runtime bundle | `v0.6.0-rc5`; contract runner hash `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng`; standard library `py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0` | Official pinned manager bundle staged under ignored `.tooling` and consumed by direct tests/linter |
 | Studio / consensus | `0.123.0-rc.6` / Consensus v0.6 RC | Recorded as the preview family from official v0.6 guidance; Studio Dev preview state may reset |
 | Node / npm / Python | Node `24.16.0`, npm `11.13.0`, Python `3.12.10` | Observed locally; unchanged |
 | Frontend runtime/build | Next.js `15.5.25`, React/React DOM `19.1.0`, PostCSS override `8.5.23` | Exact lockfile; selected to remove current production advisories while staying on Next 15.5 |
-| Frontend lint/browser tests | ESLint / `@eslint/js` `9.39.5`, Next plugin `15.5.25`, TypeScript ESLint parser/plugin `8.70.0`, Playwright `1.62.0` | Exact lockfile; UI unit suite 15/15; GitHub CI browser smoke 3/3; full wallet flow remains untested and local Playwright did not exit cleanly |
+| Frontend lint/browser tests | ESLint / `@eslint/js` `9.39.5`, Next plugin `15.5.25`, TypeScript ESLint parser/plugin `8.70.0`, Playwright `1.62.0` | Exact lockfile; deterministic frontend suite 43/43; GitHub CI browser smoke 3/3; full live wallet flow remains outside automated browser coverage |
 
 ## Studio Dev identity
 
@@ -48,4 +48,4 @@ This project does not use a mixed stable/RC GenLayer package set. On the earlier
 
 `genvm-lint check`, schema and typecheck each emitted a warning that this Windows environment cannot query GitHub for the latest GenVM manager release (`WinError 10013`). They completed with the locally staged, exact v0.6.0-rc5 runner: lint/SDK validation passed, schema extraction passed, SDK typecheck passed. The pinned direct runner is not substituted by stable versions. CI fetches the explicit `v0.6.0-rc5` bundle.
 
-The latest workflow run is [34855094116](https://github.com/Ifem1/apterra/actions/runs/34855094116) on code commit `72f89d4`: lint/typecheck, 15 frontend unit tests, 3 browser smoke tests, production build, GenVM check/typecheck/schema, and 58 direct tests passed. The manual clean Windows clone at this exact code revision passed `npm ci`, lint, frontend tests, build, and direct tests (58/58 in 27.05s); GenVM check/typecheck/schema also passed before the repeat `npm ci`. The local Playwright process did not exit cleanly after reporting its cases. Full audit at the prior lockfile audit found 0 production vulnerabilities and 5 moderate development-only findings via pinned CLI dependencies; `npm ci` emitted upstream deprecation notices.
+The current CI baseline passes lint/typecheck, **43/43 deterministic frontend tests**, **3/3 browser smoke tests**, production build, GenVM check/typecheck/schema (**3/3 lint checks + SDK validation; 25 methods, 14 views/11 writes**), and **63/63 direct Python tests**. The earlier `72f89d4` Windows clean-clone transcript and its 15/15 frontend + 58/58 direct counts remain historical reproducibility evidence only. Full audit at the prior lockfile audit found 0 production vulnerabilities and 5 moderate development-only findings via pinned CLI dependencies; `npm ci` emitted upstream deprecation notices.
